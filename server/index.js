@@ -9,13 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? [
-          process.env.FRONTEND_URL || "https://bodydouble-eu8k5n829-kayahs-projects.vercel.app",
-          "https://bodydouble-eu8k5n829-kayahs-projects.vercel.app",
-          "https://bodydouble-2t95k2drd-kayahs-projects.vercel.app"
-        ] 
-      : ["http://localhost:3000"],
+    origin: "*",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -23,13 +17,7 @@ const io = socketIo(server, {
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        process.env.FRONTEND_URL || "https://bodydouble-eu8k5n829-kayahs-projects.vercel.app",
-        "https://bodydouble-eu8k5n829-kayahs-projects.vercel.app",
-        "https://bodydouble-2t95k2drd-kayahs-projects.vercel.app"
-      ] 
-    : ["http://localhost:3000"],
+  origin: "*",
   credentials: true
 }));
 app.use(express.json());
