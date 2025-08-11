@@ -281,7 +281,7 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5003;
+const PORT = parseInt(process.env.PORT) || 5003;
 server.listen(PORT, () => {
   console.log(`Body Double server running on port ${PORT}`);
 });
