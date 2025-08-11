@@ -279,5 +279,5 @@ app.get('/api/stats', (req, res) => {
 
 const PORT = parseInt(process.env.PORT) || 5003;
 server.listen(PORT, () => {
-  console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins`);
+  console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins - v2.0`);
 });
