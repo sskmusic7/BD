@@ -3,13 +3,14 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy backend package files
+# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm install
 
-# Copy backend source
+# Copy server source
 COPY server/ ./server/
 
-EXPOSE 5002
+# Expose the port (Railway will override this)
+EXPOSE 5000
 
 CMD ["node", "server/index.js"]
