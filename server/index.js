@@ -277,6 +277,18 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.json({ 
+    message: 'CORS test successful', 
+    cors: 'enabled',
+    timestamp: new Date().toISOString()
+  });
+});
+
 const PORT = parseInt(process.env.PORT) || 5003;
 server.listen(PORT, () => {
   console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins - v2.1`);
