@@ -22,6 +22,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Handle preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
+
 // In-memory storage (replace with database in production)
 const users = new Map();
 const waitingQueue = [];
@@ -266,10 +274,16 @@ io.on('connection', (socket) => {
 
 // REST API endpoints
 app.get('/api/health', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
   res.json({ status: 'OK', users: users.size, sessions: activeSessions.size });
 });
 
 app.get('/api/stats', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
   res.json({
     onlineUsers: users.size,
     activeSessions: activeSessions.size,
