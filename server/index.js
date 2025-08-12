@@ -283,10 +283,8 @@ io.on('connection', (socket) => {
 
 // REST API endpoints
 app.get('/api/health', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.json({ status: 'OK', users: users.size, sessions: activeSessions.size });
+  // Railway healthcheck - return simple OK status
+  res.status(200).send('OK');
 });
 
 app.get('/api/stats', (req, res) => {
@@ -298,6 +296,11 @@ app.get('/api/stats', (req, res) => {
     activeSessions: activeSessions.size,
     waitingUsers: waitingQueue.length
   });
+});
+
+// Separate health endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
 });
 
 // CORS test endpoint
