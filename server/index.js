@@ -39,6 +39,11 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Health endpoint for Railway - must be first!
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // In-memory storage (replace with database in production)
 const users = new Map();
 const waitingQueue = [];
@@ -298,10 +303,7 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// Separate health endpoint for Railway
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
+
 
 // CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
