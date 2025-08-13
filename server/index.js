@@ -3,6 +3,18 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+
+// Add error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 require('dotenv').config();
 
 const app = express();
@@ -318,6 +330,16 @@ app.get('/api/cors-test', (req, res) => {
 });
 
 const PORT = parseInt(process.env.PORT) || 5003;
+
+// Add error handling for server startup
+server.on('error', (error) => {
+  console.error('Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  }
+});
+
 server.listen(PORT, () => {
-  console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins - v2.1`);
+  console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins - v2.6`);
+  console.log(`Health endpoint available at: http://localhost:${PORT}/health`);
 });
