@@ -16,7 +16,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: url('/cloud-background.jpg') no-repeat center center fixed;
+  background: url('./cloud-background.jpg') no-repeat center center fixed;
   background-size: cover;
   min-height: 100vh;
   position: relative;
