@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Brain, Users, Home, LogOut } from 'lucide-react';
+import { Users, Home, LogOut } from 'lucide-react';
 
 const Navbar = ({ user, onLogout }) => {
   const location = useLocation();
