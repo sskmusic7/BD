@@ -158,7 +158,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
   return (
     <div className="min-h-screen" style={{
-      background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
       backgroundSize: 'cover'
     }}>
       <div className="max-w-6xl mx-auto p-4">
