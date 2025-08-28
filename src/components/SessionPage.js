@@ -159,8 +159,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   return (
     <div className="min-h-screen" style={{
       background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
-      backgroundSize: 'cover',
-      backgroundAttachment: window.innerWidth <= 768 ? 'scroll' : 'fixed'
+      backgroundSize: 'cover'
     }}>
       <div className="max-w-6xl mx-auto p-4">
         {/* Header */}
@@ -171,11 +170,6 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                 src="/official logo.png" 
                 alt="BodyDouble Logo" 
                 className="max-w-12 max-h-12 w-auto h-auto"
-                onError={(e) => {
-                  console.error('Logo failed to load:', e.target.src);
-                  e.target.style.display = 'none';
-                }}
-                onLoad={() => console.log('Logo loaded successfully')}
               />
               <div>
                 <h1 className="text-2xl font-bold text-white">Body Doubling Session</h1>
