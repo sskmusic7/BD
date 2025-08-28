@@ -15,13 +15,12 @@ const Navbar = ({ user, onLogout }) => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center">
             <img 
               src="/official logo.png" 
               alt="BodyDouble Logo" 
               className="w-8 h-8"
             />
-            <span className="text-white font-bold text-xl">BodyDouble</span>
           </Link>
 
           {/* Navigation Links */}
