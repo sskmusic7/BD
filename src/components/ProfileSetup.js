@@ -46,7 +46,7 @@ const ProfileSetup = ({ onComplete }) => {
         <div className="text-center mb-8">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="./official logo.png" 
+              src="/official logo.png" 
               alt="BodyDouble Logo" 
               className="w-8 h-8"
             />
