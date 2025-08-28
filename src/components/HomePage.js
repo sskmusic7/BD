@@ -76,7 +76,8 @@ const HomePage = ({ socket, user }) => {
     <div className="min-h-screen" style={{
       background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
       backgroundSize: 'cover',
-      minHeight: '100vh'
+      minHeight: '100vh',
+      backgroundColor: 'red' // Temporary debug color
     }}>
       <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Hero Section */}
