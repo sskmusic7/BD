@@ -16,9 +16,6 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: url('/Make_the_water_clearer looping.gif') no-repeat center center;
-  background-size: cover;
-  background-attachment: scroll;
   min-height: 100vh;
   position: relative;
 }
@@ -40,29 +37,7 @@ body {
   }
 }
 
-/* Water background utility class for components */
-.bg-water-background {
-  background: url('/Make_the_water_clearer looping.gif') no-repeat center center;
-  background-size: cover;
-  background-attachment: scroll;
-}
 
-/* Mobile-specific background handling for components */
-@media (max-width: 768px) {
-  .bg-water-background {
-    background-attachment: scroll;
-    background-position: center top;
-    background-repeat: no-repeat;
-    background-size: cover;
-  }
-}
-
-/* Desktop background with fixed attachment for components */
-@media (min-width: 769px) {
-  .bg-water-background {
-    background-attachment: fixed;
-  }
-}
 
 /* Add a subtle overlay to ensure text readability */
 body::before {
