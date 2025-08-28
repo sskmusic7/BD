@@ -43,7 +43,10 @@ const ProfileSetup = ({ onComplete }) => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{
       background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
-      backgroundSize: 'cover'
+      backgroundSize: 'cover',
+      backgroundColor: 'red', // Debug color to test
+      position: 'relative',
+      zIndex: 1
     }}>
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
