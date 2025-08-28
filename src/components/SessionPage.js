@@ -59,10 +59,16 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
         setIsTimerRunning(timerData.isRunning);
       });
 
+      socket.on('friend-added', (friend) => {
+        console.log('Friend added successfully:', friend);
+        alert(`Successfully added ${friend.name} as a friend!`);
+      });
+
       return () => {
         socket.off('session-message');
         socket.off('goal-update');
         socket.off('timer-sync');
+        socket.off('friend-added');
       };
     }
   }, [socket, user.id]);
@@ -117,7 +123,17 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
   const addFriend = () => {
     if (socket && session.partner) {
-      socket.emit('add-friend', session.partner.id);
+      console.log('Adding friend:', session.partner);
+      // Use the socket ID from the partner object
+      const partnerSocketId = session.partner.id || session.partner.socketId;
+      if (partnerSocketId) {
+        socket.emit('add-friend', partnerSocketId);
+        // Add visual feedback
+        alert('Friend request sent! Check your friends list.');
+      } else {
+        console.error('No valid partner ID found:', session.partner);
+        alert('Unable to add friend - partner ID not found');
+      }
     }
   };
 
