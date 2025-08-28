@@ -3,6 +3,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -19,6 +21,62 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Data persistence files
+const DATA_DIR = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const FRIENDSHIPS_FILE = path.join(DATA_DIR, 'friendships.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Load persistent data
+function loadPersistentData() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const usersData = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      return new Map(Object.entries(usersData));
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+  }
+  return new Map();
+}
+
+function loadFriendships() {
+  try {
+    if (fs.existsSync(FRIENDSHIPS_FILE)) {
+      const friendshipsData = JSON.parse(fs.readFileSync(FRIENDSHIPS_FILE, 'utf8'));
+      return new Map(Object.entries(friendshipsData).map(([key, value]) => [key, new Set(value)]));
+    }
+  } catch (error) {
+    console.error('Error loading friendships:', error);
+  }
+  return new Map();
+}
+
+// Save persistent data
+function saveUsers(users) {
+  try {
+    const usersData = Object.fromEntries(users);
+    fs.writeFileSync(USERS_FILE, JSON.stringify(usersData, null, 2));
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+}
+
+function saveFriendships(friendships) {
+  try {
+    const friendshipsData = Object.fromEntries(
+      Array.from(friendships.entries()).map(([key, value]) => [key, Array.from(value)])
+    );
+    fs.writeFileSync(FRIENDSHIPS_FILE, JSON.stringify(friendshipsData, null, 2));
+  } catch (error) {
+    console.error('Error saving friendships:', error);
+  }
+}
 
 // Force CORS headers on ALL responses
 app.use((req, res, next) => {
@@ -56,11 +114,25 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-// In-memory storage (replace with database in production)
-const users = new Map();
+// In-memory storage with persistence
+const users = loadPersistentData();
 const waitingQueue = [];
 const activeSessions = new Map();
-const friendships = new Map();
+const friendships = loadFriendships();
+
+// Auto-save data every 30 seconds
+setInterval(() => {
+  saveUsers(users);
+  saveFriendships(friendships);
+}, 30000);
+
+// Save data on graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Saving data before shutdown...');
+  saveUsers(users);
+  saveFriendships(friendships);
+  process.exit(0);
+});
 
 // Socket connection handling
 io.on('connection', (socket) => {
@@ -68,14 +140,39 @@ io.on('connection', (socket) => {
 
   // User joins with profile info
   socket.on('join', (userData) => {
-    const user = {
-      id: socket.id,
-      ...userData,
-      isOnline: true,
-      currentSession: null
-    };
-    users.set(socket.id, user);
-    socket.emit('joined', { userId: socket.id, user });
+    // Check if user already exists by name (for reconnection)
+    let existingUser = null;
+    for (const [_, user] of users) {
+      if (user.name === userData.name) {
+        existingUser = user;
+        break;
+      }
+    }
+
+    if (existingUser) {
+      // Update existing user with new socket ID
+      existingUser.id = socket.id;
+      existingUser.isOnline = true;
+      existingUser.currentSession = null;
+      users.set(socket.id, existingUser);
+      users.delete(existingUser.id); // Remove old entry
+      socket.emit('joined', { userId: socket.id, user: existingUser });
+      console.log('User reconnected:', existingUser.name);
+    } else {
+      // Create new user
+      const user = {
+        id: socket.id,
+        ...userData,
+        isOnline: true,
+        currentSession: null
+      };
+      users.set(socket.id, user);
+      socket.emit('joined', { userId: socket.id, user });
+      console.log('New user joined:', user.name);
+    }
+    
+    // Save users after modification
+    saveUsers(users);
   });
 
   // Find random partner
@@ -210,9 +307,14 @@ io.on('connection', (socket) => {
       friendships.get(socket.id).add(friendId);
       friendships.get(friendId).add(socket.id);
       
+      // Save friendships after modification
+      saveFriendships(friendships);
+      
       // Notify both users
       socket.emit('friend-added', friend);
       io.to(friendId).emit('friend-added', currentUser);
+      
+      console.log(`Friendship added: ${currentUser.name} <-> ${friend.name}`);
     }
   });
 
@@ -225,6 +327,7 @@ io.on('connection', (socket) => {
     }).filter(Boolean);
     
     socket.emit('friends-list', friendsList);
+    console.log(`Friends list sent to ${users.get(socket.id)?.name}:`, friendsList.length, 'friends');
   });
 
   // Invite friend to session
@@ -290,11 +393,15 @@ io.on('connection', (socket) => {
         }
       }
       
-      // Mark user as offline
+      // Mark user as offline but keep in users map for reconnection
       user.isOnline = false;
+      user.currentSession = null;
+      
+      // Save users after modification
+      saveUsers(users);
+      
+      console.log(`User marked offline: ${user.name}`);
     }
-    
-    users.delete(socket.id);
   });
 });
 
