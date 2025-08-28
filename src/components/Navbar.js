@@ -19,7 +19,7 @@ const Navbar = ({ user, onLogout }) => {
             <img 
               src="/official logo.png" 
               alt="BodyDouble Logo" 
-              className="w-11 h-11"
+              className="max-w-11 max-h-11 w-auto h-auto"
             />
           </Link>
 
