@@ -131,7 +131,7 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen" style={{
-        background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+        background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
         backgroundSize: 'cover'
       }}>
         <Navbar user={user} onLogout={handleLogout} />

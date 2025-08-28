@@ -42,9 +42,8 @@ const ProfileSetup = ({ onComplete }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{
-      background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
       backgroundSize: 'cover',
-      backgroundColor: 'red', // Debug color to test
       position: 'relative',
       zIndex: 1
     }}>
