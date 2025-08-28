@@ -16,7 +16,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: url('./Make_the_water_clearer looping.gif') no-repeat center center;
+  background: url('/Make_the_water_clearer looping.gif') no-repeat center center;
   background-size: cover;
   background-attachment: scroll;
   min-height: 100vh;
@@ -42,7 +42,7 @@ body {
 
 /* Water background utility class for components */
 .bg-water-background {
-  background: url('./Make_the_water_clearer looping.gif') no-repeat center center;
+  background: url('/Make_the_water_clearer looping.gif') no-repeat center center;
   background-size: cover;
   background-attachment: scroll;
 }
