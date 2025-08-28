@@ -48,7 +48,7 @@ const ProfileSetup = ({ onComplete }) => {
             <img 
               src="/official logo.png" 
               alt="BodyDouble Logo" 
-              className="w-8 h-8"
+              className="w-11 h-11"
             />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h1>
