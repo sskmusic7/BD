@@ -16,7 +16,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: url('./cloud-background.jpg') no-repeat center center fixed;
+  background: url('./Make_the_water_202508281426gif.gif') no-repeat center center fixed;
   background-size: cover;
   min-height: 100vh;
   position: relative;
@@ -52,15 +52,15 @@ body::before {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* Subtle cloud background animation */
-@keyframes gentle-drift {
+/* Subtle water background animation */
+@keyframes gentle-flow {
   0% { background-position: center center; }
   50% { background-position: center 2% center; }
   100% { background-position: center center; }
 }
 
 body {
-  animation: gentle-drift 60s ease-in-out infinite;
+  animation: gentle-flow 60s ease-in-out infinite;
 }
 
 code {
