@@ -45,7 +45,11 @@ const ProfileSetup = ({ onComplete }) => {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <Brain className="text-white w-8 h-8" />
+            <img 
+              src="./official logo.png" 
+              alt="BodyDouble Logo" 
+              className="w-8 h-8"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome to BodyDouble</h1>
           <p className="text-gray-600">Let's set up your profile to find the perfect focus partner</p>

@@ -16,9 +16,11 @@ const Navbar = ({ user, onLogout }) => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-white rounded-lg p-2">
-              <Brain className="w-6 h-6 text-blue-600" />
-            </div>
+            <img 
+              src="./official logo.png" 
+              alt="BodyDouble Logo" 
+              className="w-8 h-8"
+            />
             <span className="text-white font-bold text-xl">BodyDouble</span>
           </Link>
 
