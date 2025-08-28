@@ -71,10 +71,12 @@ const HomePage = ({ socket, user }) => {
     }
   ];
 
+  console.log('HomePage rendering with background style');
   return (
     <div className="min-h-screen" style={{
       background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
-      backgroundSize: 'cover'
+      backgroundSize: 'cover',
+      minHeight: '100vh'
     }}>
       <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Hero Section */}
