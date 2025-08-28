@@ -41,7 +41,10 @@ const ProfileSetup = ({ onComplete }) => {
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-water-background">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{
+      background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+      backgroundSize: 'cover'
+    }}>
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 flex items-center justify-center">
