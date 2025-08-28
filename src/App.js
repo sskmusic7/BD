@@ -19,40 +19,61 @@ function App() {
     const newSocket = io(config.SERVER_URL);
     setSocket(newSocket);
 
-    newSocket.on('connect', () => {
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  // Separate effect for socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnect = () => {
       setIsConnected(true);
       console.log('Connected to server');
-    });
+    };
 
-    newSocket.on('disconnect', () => {
+    const handleDisconnect = () => {
       setIsConnected(false);
       console.log('Disconnected from server');
-    });
+    };
 
-    newSocket.on('joined', (data) => {
+    const handleJoined = (data) => {
       setUser(data.user);
-    });
+    };
 
-    newSocket.on('partner-found', (data) => {
+    const handlePartnerFound = (data) => {
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,
         startTime: new Date()
       });
-    });
+    };
 
-    newSocket.on('session-ended', () => {
+    const handleSessionEnded = () => {
       setCurrentSession(null);
-    });
+    };
 
-    newSocket.on('partner-disconnected', () => {
+    const handlePartnerDisconnected = () => {
       setCurrentSession(null);
-    });
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('joined', handleJoined);
+    socket.on('partner-found', handlePartnerFound);
+    socket.on('session-ended', handleSessionEnded);
+    socket.on('partner-disconnected', handlePartnerDisconnected);
 
     return () => {
-      newSocket.close();
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('joined', handleJoined);
+      socket.off('partner-found', handlePartnerFound);
+      socket.off('session-ended', handleSessionEnded);
+      socket.off('partner-disconnected', handlePartnerDisconnected);
     };
-  }, []);
+  }, [socket]);
 
   const handleProfileComplete = (profileData) => {
     if (socket) {
@@ -61,13 +82,24 @@ function App() {
   };
 
   const handleLogout = () => {
-    setUser(null);
-    setCurrentSession(null);
+    // Clean up current session
+    if (currentSession && socket) {
+      socket.emit('end-session');
+    }
+    
+    // Disconnect current socket
     if (socket) {
       socket.disconnect();
-      const newSocket = io(config.SERVER_URL);
-      setSocket(newSocket);
     }
+    
+    // Reset all state
+    setUser(null);
+    setCurrentSession(null);
+    setSocket(null);
+    
+    // Create fresh socket connection
+    const newSocket = io(config.SERVER_URL);
+    setSocket(newSocket);
   };
 
   if (!isConnected) {
