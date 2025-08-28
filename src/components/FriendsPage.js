@@ -52,7 +52,11 @@ const FriendsPage = ({ socket, user }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen" style={{
+      background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+      backgroundSize: 'cover'
+    }}>
+      <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">Your Focus Friends</h1>
@@ -182,6 +186,7 @@ const FriendsPage = ({ socket, user }) => {
           <div className="text-2xl font-bold text-white">{invites.length}</div>
           <div className="text-white/70 text-sm">Invites</div>
         </div>
+      </div>
       </div>
     </div>
   );

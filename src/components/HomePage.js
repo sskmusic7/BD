@@ -72,7 +72,11 @@ const HomePage = ({ socket, user }) => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen" style={{
+      background: 'url(/Make_the_water_clearer looping.gif) no-repeat center center',
+      backgroundSize: 'cover'
+    }}>
+      <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Hero Section */}
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
@@ -178,6 +182,7 @@ const HomePage = ({ socket, user }) => {
             <p className="text-white/80 text-sm">Keep each other focused and celebrate progress together</p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
