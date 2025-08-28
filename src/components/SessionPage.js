@@ -12,8 +12,7 @@ import {
   UserPlus,
   Play,
   Pause,
-  RotateCcw,
-  Users
+  RotateCcw
 } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 
