@@ -41,14 +41,17 @@ const ProfileSetup = ({ onComplete }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{
+      background: 'url(./Make_the_water_clearer looping.gif) no-repeat center center fixed',
+      backgroundSize: 'cover'
+    }}>
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+          <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
               src="/official logo.png" 
               alt="BodyDouble Logo" 
-              className="w-11 h-11"
+              className="w-32 h-32"
             />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h1>
