@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, Brain, Target, Clock } from 'lucide-react';
+import { useBackground } from '../context/BackgroundContext';
 
 const ProfileSetup = ({ onComplete }) => {
+  const { currentBackground } = useBackground();
   const [profile, setProfile] = useState({
     name: '',
     focusStyle: 'silent',
@@ -42,7 +44,7 @@ const ProfileSetup = ({ onComplete }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{
-      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
+      background: `url(${currentBackground}) no-repeat center center`,
       backgroundSize: 'cover',
       position: 'relative',
       zIndex: 1

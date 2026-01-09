@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Clock, Brain, Heart, Zap } from 'lucide-react';
 import config from '../config/config';
+import { useBackground } from '../context/BackgroundContext';
 
 const HomePage = ({ socket, user }) => {
+  const { currentBackground } = useBackground();
   const [isSearching, setIsSearching] = useState(false);
   const [stats, setStats] = useState({ onlineUsers: 0, activeSessions: 0 });
 
@@ -73,7 +75,7 @@ const HomePage = ({ socket, user }) => {
 
   return (
     <div className="min-h-screen" style={{
-      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
+      background: `url(${currentBackground}) no-repeat center center`,
       backgroundSize: 'cover',
       minHeight: '100vh'
     }}>
