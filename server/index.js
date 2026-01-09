@@ -145,22 +145,52 @@ io.on('connection', (socket) => {
   socket.on('join', (userData) => {
     // Check if user already exists by name (for reconnection)
     let existingUser = null;
-    for (const [_, user] of users) {
+    let oldSocketId = null;
+    for (const [socketId, user] of users) {
       if (user.name === userData.name) {
         existingUser = user;
+        oldSocketId = socketId;
         break;
       }
     }
 
-    if (existingUser) {
+    if (existingUser && oldSocketId) {
+      // Clean up old session if user had one
+      if (existingUser.currentSession) {
+        const oldSession = activeSessions.get(existingUser.currentSession);
+        if (oldSession) {
+          // Remove old socket from room
+          const oldSocket = io.sockets.sockets.get(oldSocketId);
+          if (oldSocket) {
+            oldSocket.leave(existingUser.currentSession);
+            oldSocket.to(existingUser.currentSession).emit('partner-disconnected');
+          }
+          // Clean up session
+          oldSession.users.forEach(u => {
+            if (u.id === oldSocketId) {
+              u.currentSession = null;
+            }
+          });
+          activeSessions.delete(existingUser.currentSession);
+        }
+      }
+      
+      // Remove from waiting queue if present
+      const queueIndex = waitingQueue.findIndex(u => u.id === oldSocketId);
+      if (queueIndex > -1) {
+        waitingQueue.splice(queueIndex, 1);
+      }
+      
+      // Remove old user entry
+      users.delete(oldSocketId);
+      
       // Update existing user with new socket ID
       existingUser.id = socket.id;
       existingUser.isOnline = true;
       existingUser.currentSession = null;
       users.set(socket.id, existingUser);
-      users.delete(existingUser.id); // Remove old entry
       socket.emit('joined', { userId: socket.id, user: existingUser });
-      console.log('User reconnected:', existingUser.name);
+      console.log('User reconnected:', existingUser.name, 'from', oldSocketId, 'to', socket.id);
     } else {
       // Create new user
       const user = {
@@ -181,7 +211,17 @@ io.on('connection', (socket) => {
   // Find random partner
   socket.on('find-partner', () => {
     const currentUser = users.get(socket.id);
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('find-partner: User not found for socket', socket.id);
+      return;
+    }
+
+    // Don't allow matching if user already in a session
+    if (currentUser.currentSession) {
+      console.log('find-partner: User already in session', currentUser.name);
+      socket.emit('waiting-for-partner'); // Still show waiting to avoid UI confusion
+      return;
+    }
 
     // Remove from queue if already waiting
     const existingIndex = waitingQueue.findIndex(u => u.id === socket.id);
@@ -189,15 +229,35 @@ io.on('connection', (socket) => {
       waitingQueue.splice(existingIndex, 1);
     }
 
+    // Filter queue to only include users who are online and not in sessions
+    const availablePartners = waitingQueue.filter(u => {
+      const user = users.get(u.id);
+      return user && user.isOnline && !user.currentSession;
+    });
+    
+    // Update queue to only valid users
+    waitingQueue.length = 0;
+    waitingQueue.push(...availablePartners);
+
     // Find available partner from queue
-    if (waitingQueue.length > 0) {
-      const partner = waitingQueue.shift();
+    if (availablePartners.length > 0) {
+      const partner = availablePartners.shift();
+      const partnerUser = users.get(partner.id);
+      
+      // Double-check partner is still available
+      if (!partnerUser || !partnerUser.isOnline || partnerUser.currentSession) {
+        // Partner no longer available, add current user to queue
+        waitingQueue.push(currentUser);
+        socket.emit('waiting-for-partner');
+        return;
+      }
+      
       const sessionId = uuidv4();
       
       // Create session
       const session = {
         id: sessionId,
-        users: [currentUser, partner],
+        users: [currentUser, partnerUser],
         startTime: new Date(),
         isActive: true
       };
@@ -206,20 +266,30 @@ io.on('connection', (socket) => {
       
       // Update user sessions
       currentUser.currentSession = sessionId;
-      partner.currentSession = sessionId;
+      partnerUser.currentSession = sessionId;
+      
+      // Update queue
+      waitingQueue.length = 0;
+      waitingQueue.push(...availablePartners);
       
       // Notify both users
-      socket.emit('partner-found', { partner, sessionId });
+      socket.emit('partner-found', { partner: partnerUser, sessionId });
       io.to(partner.id).emit('partner-found', { partner: currentUser, sessionId });
       
       // Join both to session room
       socket.join(sessionId);
-      io.sockets.sockets.get(partner.id)?.join(sessionId);
+      const partnerSocket = io.sockets.sockets.get(partner.id);
+      if (partnerSocket) {
+        partnerSocket.join(sessionId);
+      }
+      
+      console.log(`Matched: ${currentUser.name} <-> ${partnerUser.name} (session: ${sessionId})`);
       
     } else {
       // Add to waiting queue
       waitingQueue.push(currentUser);
       socket.emit('waiting-for-partner');
+      console.log(`User ${currentUser.name} added to waiting queue (${waitingQueue.length} waiting)`);
     }
   });
 
@@ -285,10 +355,29 @@ io.on('connection', (socket) => {
         // Notify other user
         socket.to(user.currentSession).emit('session-ended');
         
-        // Clean up session
-        session.users.forEach(u => u.currentSession = null);
+        // Leave session room
+        socket.leave(user.currentSession);
+        
+        // Clean up session - update all users in session
+        session.users.forEach(u => {
+          const sessionUser = users.get(u.id);
+          if (sessionUser) {
+            sessionUser.currentSession = null;
+          }
+          // Leave room for other user
+          const otherSocket = io.sockets.sockets.get(u.id);
+          if (otherSocket && u.id !== socket.id) {
+            otherSocket.leave(user.currentSession);
+          }
+        });
+        
         activeSessions.delete(user.currentSession);
         user.currentSession = null;
+        
+        console.log(`Session ${session.id} ended by ${user.name}`);
+        
+        // Save users after modification
+        saveUsers(users);
       }
     }
   });
@@ -384,15 +473,34 @@ io.on('connection', (socket) => {
       const queueIndex = waitingQueue.findIndex(u => u.id === socket.id);
       if (queueIndex > -1) {
         waitingQueue.splice(queueIndex, 1);
+        console.log(`Removed ${user.name} from waiting queue`);
       }
       
       // End active session
       if (user.currentSession) {
         const session = activeSessions.get(user.currentSession);
         if (session) {
+          // Notify partner
           socket.to(user.currentSession).emit('partner-disconnected');
-          session.users.forEach(u => u.currentSession = null);
+          
+          // Leave session room
+          socket.leave(user.currentSession);
+          
+          // Clean up session - update all users in session
+          session.users.forEach(u => {
+            const sessionUser = users.get(u.id);
+            if (sessionUser) {
+              sessionUser.currentSession = null;
+            }
+            // Leave room for other user
+            const otherSocket = io.sockets.sockets.get(u.id);
+            if (otherSocket && u.id !== socket.id) {
+              otherSocket.leave(user.currentSession);
+            }
+          });
+          
           activeSessions.delete(user.currentSession);
+          console.log(`Session ${session.id} cleaned up due to disconnect`);
         }
       }
       
