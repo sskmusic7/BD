@@ -109,7 +109,7 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// Health endpoint for Railway - must be first!
+// Health endpoint for Cloud Run - must be first!
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
@@ -407,7 +407,7 @@ io.on('connection', (socket) => {
 
 // REST API endpoints
 app.get('/api/health', (req, res) => {
-  // Railway healthcheck - return simple OK status
+  // Healthcheck endpoint for Cloud Run/Railway - return simple OK status
   res.status(200).send('OK');
 });
 
@@ -446,7 +446,7 @@ server.on('error', (error) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Body Double server running on port ${PORT} - CORS enabled for all origins - v2.6`);
   console.log(`Health endpoint available at: http://localhost:${PORT}/health`);
 });

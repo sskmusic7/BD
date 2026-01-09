@@ -10,7 +10,7 @@ RUN npm install
 # Copy server source
 COPY server/ ./server/
 
-# Expose the port (Railway will override this)
-EXPOSE 5000
+# Expose the port (Cloud Run will set PORT env var)
+EXPOSE 8080
 
 CMD ["node", "server/index.js"]
