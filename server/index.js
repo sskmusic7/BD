@@ -90,8 +90,11 @@ const io = socketIo(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 // Middleware
