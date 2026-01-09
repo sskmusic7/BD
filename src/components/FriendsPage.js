@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, MessageCircle, Clock, Search } from 'lucide-react';
+import { useBackground } from '../context/BackgroundContext';
 
 const FriendsPage = ({ socket, user }) => {
+  const { currentBackground } = useBackground();
   const [friends, setFriends] = useState([]);
   const [invites, setInvites] = useState([]);
 
@@ -53,7 +55,7 @@ const FriendsPage = ({ socket, user }) => {
 
   return (
     <div className="min-h-screen" style={{
-      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
+      background: `url(${currentBackground}) no-repeat center center`,
       backgroundSize: 'cover'
     }}>
       <div className="max-w-4xl mx-auto px-4 py-8">

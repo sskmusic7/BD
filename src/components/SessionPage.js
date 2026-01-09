@@ -15,8 +15,10 @@ import {
   RotateCcw
 } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
+import { useBackground } from '../context/BackgroundContext';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
+  const { currentBackground } = useBackground();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [goals, setGoals] = useState({ user: '', partner: '' });
@@ -158,7 +160,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
   return (
     <div className="min-h-screen" style={{
-      background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
+      background: `url(${currentBackground}) no-repeat center center`,
       backgroundSize: 'cover'
     }}>
       <div className="max-w-6xl mx-auto p-4">
@@ -391,50 +393,62 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
           {/* Chat Sidebar */}
           <div className={`${showChat ? 'block' : 'hidden'} lg:block`}>
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 h-96 flex flex-col">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center">
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Chat
-              </h3>
-              
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                {messages.map((message, index) => (
-                  <div key={index} className={`flex ${message.from.id === user.id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs px-3 py-2 rounded-lg ${
-                      message.from.id === user.id 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-white/20 text-white'
-                    }`}>
-                      {message.type === 'goal' && (
-                        <Target className="w-4 h-4 inline mr-1" />
-                      )}
-                      <p className="text-sm">{message.text}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message Input */}
-              <form onSubmit={sendMessage} className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 px-3 py-2 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 focus:border-white/50 focus:outline-none text-sm"
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 h-96 flex flex-col relative">
+              {/* Watermark Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                <img 
+                  src="/watermark.png" 
+                  alt="BodyDouble Watermark"
+                  className="opacity-30 w-48 h-48 object-contain"
                 />
-                <button
-                  type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Send
-                </button>
-              </form>
+              </div>
+              
+              {/* Chat Content */}
+              <div className="relative z-10 flex flex-col h-full">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Chat
+                </h3>
+                
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+                  {messages.map((message, index) => (
+                    <div key={index} className={`flex ${message.from.id === user.id ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs px-3 py-2 rounded-lg ${
+                        message.from.id === user.id 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-white/20 text-white'
+                      }`}>
+                        {message.type === 'goal' && (
+                          <Target className="w-4 h-4 inline mr-1" />
+                        )}
+                        <p className="text-sm">{message.text}</p>
+                        <p className="text-xs opacity-70 mt-1">
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Message Input */}
+                <form onSubmit={sendMessage} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message..."
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 focus:border-white/50 focus:outline-none text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Send
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </div>

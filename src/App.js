@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import config from './config/config';
+import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
 import SessionPage from './components/SessionPage';
 import ProfileSetup from './components/ProfileSetup';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
+import BackgroundSelector from './components/BackgroundSelector';
 
-function App() {
+function AppContent() {
+  const { currentBackground } = useBackground();
   const [socket, setSocket] = useState(null);
   const [user, setUser] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
@@ -131,10 +134,11 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen" style={{
-        background: 'url(/Make_the_water_clearer_looping.gif) no-repeat center center',
+        background: `url(${currentBackground}) no-repeat center center`,
         backgroundSize: 'cover'
       }}>
         <Navbar user={user} onLogout={handleLogout} />
+        <BackgroundSelector />
         <Routes>
           <Route 
             path="/" 
@@ -158,6 +162,14 @@ function App() {
         </Routes>
       </div>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <BackgroundProvider>
+      <AppContent />
+    </BackgroundProvider>
   );
 }
 
