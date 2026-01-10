@@ -34,7 +34,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       
       return stream;
     } catch (error) {
-      console.error('Error accessing media devices:', error);
+      // Only log if it's not a permission denial (expected behavior)
+      if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
+        console.error('Error accessing media devices:', error);
+      }
       // Try audio only if video fails
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -44,7 +47,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
         localStreamRef.current = audioStream;
         return audioStream;
       } catch (audioError) {
-        console.error('Error accessing audio:', audioError);
+        // Only log if it's not a permission denial
+        if (audioError.name !== 'NotAllowedError' && audioError.name !== 'PermissionDeniedError') {
+          console.error('Error accessing audio:', audioError);
+        }
         return null;
       }
     }
