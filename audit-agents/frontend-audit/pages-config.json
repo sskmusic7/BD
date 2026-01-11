@@ -1,0 +1,8 @@
+{
+  "pages": [
+    { "path": "/", "name": "Home" },
+    { "path": "/friends", "name": "Friends" }
+  ],
+  "dynamicPages": []
+}
+
