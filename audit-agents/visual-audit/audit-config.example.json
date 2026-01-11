@@ -1,0 +1,19 @@
+{
+  "dataDir": "./data",
+  "blogPostsPath": "generated-blog-posts.json",
+  "productsPath": "generated-excursions.json",
+  "configPath": "site-images-config.json",
+  "customImages": [
+    {
+      "id": "custom-1",
+      "type": "custom",
+      "title": "Custom Image 1",
+      "imageUrl": "https://example.com/image.jpg",
+      "page": "/custom",
+      "component": "CustomComponent",
+      "context": "Custom image description"
+    }
+  ],
+  "outputPath": "./audit-results.json"
+}
+

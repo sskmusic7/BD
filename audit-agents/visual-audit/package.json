@@ -1,0 +1,29 @@
+{
+  "name": "visual-audit-agent",
+  "version": "1.0.0",
+  "description": "Visual audit agent for checking image quality and relevance",
+  "main": "audit.ts",
+  "scripts": {
+    "audit": "ts-node audit.ts",
+    "audit:config": "ts-node audit.ts --config=./audit-config.json"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "audit",
+    "images",
+    "visual",
+    "quality",
+    "google-vision",
+    "unsplash"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

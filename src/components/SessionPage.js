@@ -20,7 +20,14 @@ import useWebRTC from '../hooks/useWebRTC';
 import { useBackground } from '../context/BackgroundContext';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
-  const { currentBackground } = useBackground();
+  // Get background with fallback
+  let currentBackground = '/backgrounds/Make_the_water_clearer_looping.gif'; // Default fallback
+  try {
+    const bgContext = useBackground();
+    currentBackground = bgContext.currentBackground || currentBackground;
+  } catch (error) {
+    console.warn('BackgroundContext not available, using default:', error);
+  }
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [goals, setGoals] = useState({ user: '', partner: '' });
@@ -178,11 +185,18 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Safety check for background
+  const backgroundStyle = {
+    background: currentBackground 
+      ? `url(${currentBackground}) no-repeat center center` 
+      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    backgroundSize: 'cover',
+    backgroundAttachment: 'fixed',
+    minHeight: '100vh'
+  };
+
   return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover'
-    }}>
+    <div className="min-h-screen" style={backgroundStyle}>
       <div className="max-w-6xl mx-auto p-4">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6">
@@ -238,36 +252,48 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
         </div>
 
         {/* Layout Toggle Button */}
-        <div className="flex justify-end mb-4">
-          <div className="bg-white/10 backdrop-blur-md rounded-lg p-2 flex space-x-2">
+        <div className="flex justify-end mb-4 z-50 relative">
+          <div className="bg-black/70 backdrop-blur-md rounded-lg p-2 flex space-x-2 border-2 border-white/40 shadow-2xl">
             <button
-              onClick={() => setCameraLayout('side-by-side')}
-              className={`p-2 rounded transition-colors ${
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCameraLayout('side-by-side');
+              }}
+              className={`p-2 rounded transition-all duration-200 ${
                 cameraLayout === 'side-by-side' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-blue-500 text-white shadow-lg scale-110' 
+                  : 'bg-white/40 text-white hover:bg-white/60 hover:scale-105'
               }`}
               title="Side by side layout"
             >
               <LayoutGrid className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setCameraLayout('stacked')}
-              className={`p-2 rounded transition-colors ${
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCameraLayout('stacked');
+              }}
+              className={`p-2 rounded transition-all duration-200 ${
                 cameraLayout === 'stacked' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-blue-500 text-white shadow-lg scale-110' 
+                  : 'bg-white/40 text-white hover:bg-white/60 hover:scale-105'
               }`}
               title="Stacked full screen"
             >
               <Maximize2 className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setCameraLayout('stacked-with-chat')}
-              className={`p-2 rounded transition-colors ${
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCameraLayout('stacked-with-chat');
+              }}
+              className={`p-2 rounded transition-all duration-200 ${
                 cameraLayout === 'stacked-with-chat' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-blue-500 text-white shadow-lg scale-110' 
+                  : 'bg-white/40 text-white hover:bg-white/60 hover:scale-105'
               }`}
               title="Stacked with chat"
             >

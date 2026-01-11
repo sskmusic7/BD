@@ -1,0 +1,25 @@
+{
+  "name": "website-audit-agents",
+  "version": "1.0.0",
+  "description": "Reusable audit tools for website testing and validation",
+  "private": true,
+  "workspaces": [
+    "frontend-audit",
+    "visual-audit"
+  ],
+  "scripts": {
+    "frontend-audit": "cd frontend-audit && node audit.js",
+    "visual-audit": "cd visual-audit && npm run audit"
+  },
+  "keywords": [
+    "audit",
+    "testing",
+    "playwright",
+    "visual-audit",
+    "image-audit",
+    "quality-assurance"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

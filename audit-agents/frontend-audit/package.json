@@ -1,0 +1,23 @@
+{
+  "name": "frontend-audit-agent",
+  "version": "1.0.0",
+  "description": "Front-end audit agent using Playwright for browser testing",
+  "main": "audit.js",
+  "scripts": {
+    "audit": "node audit.js",
+    "audit:headless": "HEADLESS=true node audit.js"
+  },
+  "dependencies": {
+    "playwright": "^1.57.0"
+  },
+  "keywords": [
+    "audit",
+    "testing",
+    "playwright",
+    "browser-testing",
+    "frontend"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
