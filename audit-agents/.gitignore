@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+*.log
+audit-results.json
+dist/
+*.tsbuildinfo
+.DS_Store
+

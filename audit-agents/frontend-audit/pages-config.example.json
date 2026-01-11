@@ -1,0 +1,14 @@
+{
+  "pages": [
+    { "path": "/", "name": "Home" },
+    { "path": "/about", "name": "About" },
+    { "path": "/contact", "name": "Contact" },
+    { "path": "/blog", "name": "Blog" },
+    { "path": "/products", "name": "Products" }
+  ],
+  "dynamicPages": [
+    { "path": "/products/1", "name": "Product Detail 1" },
+    { "path": "/products/2", "name": "Product Detail 2" }
+  ]
+}
+
