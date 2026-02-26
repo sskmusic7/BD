@@ -1,0 +1,15 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.bodydoubleapp.com"
+        }
+      ],
+      "destination": "https://bodydoubleapp.com",
+      "permanent": true
+    }
+  ]
+}

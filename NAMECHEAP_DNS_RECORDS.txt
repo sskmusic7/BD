@@ -1,0 +1,129 @@
+==========================================
+NAMECHEAP DNS RECORDS FOR BODYDOUBLEAPP.COM
+==========================================
+
+✅ DOMAINS ADDED TO VERCEL:
+- bodydoubleapp.com
+- www.bodydoubleapp.com
+
+==========================================
+DNS RECORDS TO ADD IN NAMECHEAP
+==========================================
+
+STEP 1: Log into Namecheap
+- Go to: https://www.namecheap.com
+- Login → Domain List → Manage (next to bodydoubleapp.com)
+
+STEP 2: Go to Advanced DNS Tab
+- Click "Advanced DNS" tab
+
+STEP 3: Add These Records
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECORD 1: Apex Domain (bodydoubleapp.com)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option A - A Record (Recommended for apex):
+Type:     A Record
+Host:     @
+Value:    76.76.21.21
+TTL:      Automatic (or 3600)
+
+OR
+
+Option B - ALIAS Record (if Namecheap supports it):
+Type:     ALIAS Record
+Host:     @
+Value:    cname.vercel-dns.com
+TTL:      Automatic
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECORD 2: WWW Subdomain
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Type:     CNAME Record
+Host:     www
+Value:    cname.vercel-dns.com
+TTL:      Automatic (or 3600)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION: URL Redirect Record (Alternative)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you want www to redirect to non-www (or vice versa),
+you can use Namecheap's URL Redirect feature instead:
+
+In Namecheap:
+1. Go to Domain List → Manage → Advanced DNS
+2. Find "URL Redirect Record" section
+3. Add redirect:
+   - Type: URL Redirect Record
+   - Host: www
+   - Value: https://bodydoubleapp.com
+   - Redirect Type: 301 (Permanent)
+
+OR redirect non-www to www:
+   - Type: URL Redirect Record  
+   - Host: @
+   - Value: https://www.bodydoubleapp.com
+   - Redirect Type: 301 (Permanent)
+
+⚠️  NOTE: If using URL Redirect, you only need:
+   - ONE A Record for the main domain (@ → 76.76.21.21)
+   - ONE URL Redirect for the redirect target
+   - Don't add both CNAME and URL Redirect for the same subdomain
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4: Remove Old Records
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Delete any existing A records pointing to parking pages
+- Keep MX records (if using email)
+- Keep TXT records (SPF, DKIM, etc. if using email)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5: Save Changes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Click "Save All Changes" (green checkmark)
+- Wait 1-24 hours for DNS propagation (usually 1-2 hours)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After adding records, verify with:
+
+nslookup bodydoubleapp.com
+nslookup www.bodydoubleapp.com
+
+Or check online:
+https://www.whatsmydns.net/#A/bodydoubleapp.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  Some registrars don't allow CNAME on apex domain (@)
+    If Namecheap doesn't allow CNAME on @, use A Record instead
+
+⚠️  The exact values may vary - verify in Vercel dashboard:
+    1. Go to: https://vercel.com/dashboard
+    2. Project: bodydouble → Settings → Domains
+    3. Click on bodydoubleapp.com
+    4. You'll see the exact DNS records needed
+
+⚠️  SSL Certificate is automatic - Vercel will provision it
+    after DNS is configured (takes 5-10 minutes)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUICK REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Apex Domain (@):
+  A Record → 76.76.21.21
+  OR
+  ALIAS → cname.vercel-dns.com
+
+WWW Subdomain:
+  CNAME → www → cname.vercel-dns.com
