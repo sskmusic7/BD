@@ -320,6 +320,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
         </div>
 
         {/* Dynamic Layout Container */}
+        <>
         {cameraLayout === 'stacked' ? (
           /* Full Screen Stacked Layout */
           <div className="space-y-6">
@@ -723,7 +724,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
             <div className="lg:col-span-2 space-y-6">
               {/* Video Area */}
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6">
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {/* User Video */}
                 <div className="relative bg-gray-800 rounded-xl aspect-video overflow-hidden">
                   <video
@@ -977,6 +978,8 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
             </div>
           </div>
         </div>
+        </>
+      </div>
       </div>
     </div>
   );
