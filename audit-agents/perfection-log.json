@@ -1,0 +1,638 @@
+[
+  {
+    "timestamp": "2026-02-27T02:47:06.779Z",
+    "aesthetic": {
+      "status": "unknown",
+      "lastCheck": null
+    },
+    "functionality": {
+      "status": "unknown",
+      "lastCheck": null
+    },
+    "backend": {
+      "status": "unknown",
+      "lastCheck": null
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T02:52:06.767Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T02:57:06.753Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:02:06.739Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:07:06.724Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:12:06.710Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:17:06.854Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.244Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T02:47:07.225Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:22:06.841Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.930Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:27:06.828Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.930Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:32:06.817Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.930Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:37:06.804Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.930Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:42:06.793Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.930Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:47:06.930Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:37.932Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:42:19.378Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:17:38.552Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:52:06.921Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:08.347Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:08.341Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:09.371Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:54:25.739Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:08.347Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:08.341Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:48:09.371Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:57:06.913Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T03:59:25.732Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:02:06.904Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:04:25.724Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:07:06.895Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:09:25.714Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:12:06.887Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:14:25.705Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:17:06.880Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.033Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:27.031Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T03:54:26.030Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:19:25.698Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.780Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.749Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:42.188Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:22:06.871Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.780Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.749Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:42.188Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:24:25.796Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.780Z",
+      "issues": 1,
+      "warnings": 0
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:41.749Z",
+      "issues": 1
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:18:42.188Z",
+      "issues": 3
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:27:06.968Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:31.000Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.558Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.243Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:29:25.785Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:31.000Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.558Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.243Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:32:06.957Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:31.000Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.558Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.243Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:32:14.648Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:31.000Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.558Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:24:36.243Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  },
+  {
+    "timestamp": "2026-02-27T04:34:25.774Z",
+    "aesthetic": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:32:15.088Z",
+      "issues": 1,
+      "warnings": 2
+    },
+    "functionality": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:32:15.091Z",
+      "issues": 2
+    },
+    "backend": {
+      "status": "issues",
+      "lastCheck": "2026-02-27T04:32:15.089Z",
+      "issues": 2
+    },
+    "overall": "issues"
+  }
+]

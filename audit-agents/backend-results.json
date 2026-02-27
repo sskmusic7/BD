@@ -1,0 +1,222 @@
+[
+  {
+    "timestamp": "2026-02-27T02:47:07.225Z",
+    "iteration": 1,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      },
+      {
+        "test": "socket_connection",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n"
+      }
+    ],
+    "passed": [
+      "Response time: 120ms",
+      "Error handling works"
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T03:17:38.552Z",
+    "iteration": 2,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      },
+      {
+        "test": "socket_connection",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n"
+      }
+    ],
+    "passed": [
+      "Response time: 110ms",
+      "Error handling works"
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T03:48:09.371Z",
+    "iteration": 3,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      },
+      {
+        "test": "socket_connection",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n"
+      }
+    ],
+    "passed": [
+      "Response time: 111ms",
+      "Error handling works"
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T03:54:26.030Z",
+    "iteration": 1,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      }
+    ],
+    "passed": [
+      "Response time: 267ms",
+      "Error handling works"
+    ],
+    "warnings": [
+      {
+        "test": "socket_connection",
+        "message": "No socket requests detected (may be normal if not in session)"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:18:42.188Z",
+    "iteration": 4,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      },
+      {
+        "test": "socket_connection",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n"
+      }
+    ],
+    "passed": [
+      "Response time: 111ms",
+      "Error handling works"
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:24:36.243Z",
+    "iteration": 2,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      }
+    ],
+    "passed": [
+      "Response time: 254ms",
+      "Error handling works"
+    ],
+    "warnings": [
+      {
+        "test": "socket_connection",
+        "message": "No socket requests detected (may be normal if not in session)"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:32:15.089Z",
+    "iteration": 1,
+    "tests": {
+      "response_time": "passed",
+      "error_handling": "passed"
+    },
+    "issues": [
+      {
+        "test": "health_endpoint",
+        "severity": "high",
+        "message": "Health endpoint returned 404",
+        "status": 404,
+        "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>404 Page not found</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Page not found</h1>\n<h2>The requested URL was not found on this server.</h2>\n<h2></h2>\n</body></html>\n"
+      },
+      {
+        "test": "cors",
+        "severity": "medium",
+        "message": "CORS headers missing or incorrect"
+      }
+    ],
+    "passed": [
+      "Response time: 301ms",
+      "Error handling works"
+    ],
+    "warnings": [
+      {
+        "test": "socket_connection",
+        "message": "No socket requests detected (may be normal if not in session)"
+      }
+    ]
+  }
+]

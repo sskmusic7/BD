@@ -43,7 +43,9 @@ async function runFunctionalityAudit() {
     const jsErrors = [];
     page.on('pageerror', error => jsErrors.push(error.message));
     
-    await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    // Use 'domcontentloaded' instead of 'networkidle' because the app
+    // maintains long‑lived connections (sockets, polling, etc.).
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
     
     if (jsErrors.length > 0) {

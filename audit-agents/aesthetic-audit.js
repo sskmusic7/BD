@@ -38,7 +38,9 @@ async function runAestheticAudit() {
 
   try {
     // Navigate to home
-    await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    // Use 'domcontentloaded' instead of 'networkidle' because the app
+    // keeps an open socket connection and background requests.
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
 
     // Test 1: Check for duplicate chat boxes
