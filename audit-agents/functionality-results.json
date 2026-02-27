@@ -1,0 +1,250 @@
+[
+  {
+    "timestamp": "2026-02-27T02:47:07.225Z",
+    "iteration": 1,
+    "tests": {},
+    "issues": [
+      {
+        "test": "general",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runFunctionalityAudit (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:46:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:268:25)"
+      }
+    ],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T03:17:37.930Z",
+    "iteration": 2,
+    "tests": {},
+    "issues": [
+      {
+        "test": "general",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runFunctionalityAudit (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:46:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:268:25)"
+      }
+    ],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T03:42:19.378Z",
+    "iteration": 1,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T03:48:08.341Z",
+    "iteration": 3,
+    "tests": {},
+    "issues": [
+      {
+        "test": "general",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runFunctionalityAudit (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:46:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:268:25)"
+      }
+    ],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T03:54:26.030Z",
+    "iteration": 1,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T03:54:27.031Z",
+    "iteration": 1,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:18:41.749Z",
+    "iteration": 4,
+    "tests": {},
+    "issues": [
+      {
+        "test": "general",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runFunctionalityAudit (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:46:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:268:25)"
+      }
+    ],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T04:24:36.152Z",
+    "iteration": 2,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:24:36.558Z",
+    "iteration": 2,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:32:15.091Z",
+    "iteration": 1,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  }
+]
