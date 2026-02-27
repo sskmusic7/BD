@@ -246,5 +246,83 @@
         "message": "No video elements found on mobile"
       }
     ]
+  },
+  {
+    "timestamp": "2026-02-27T04:49:12.142Z",
+    "iteration": 5,
+    "tests": {},
+    "issues": [
+      {
+        "test": "general",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runFunctionalityAudit (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:46:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/functionality-audit.js:268:25)"
+      }
+    ],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T04:54:44.641Z",
+    "iteration": 3,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-02-27T04:54:46.046Z",
+    "iteration": 3,
+    "tests": {
+      "home_page_load": "passed",
+      "login_flow": "passed",
+      "button_functionality": "passed"
+    },
+    "issues": [
+      {
+        "test": "layout_toggle",
+        "severity": "medium",
+        "message": "Only found 0 layout buttons"
+      },
+      {
+        "test": "backend_health",
+        "severity": "high",
+        "message": "Backend returned 404"
+      }
+    ],
+    "passed": [
+      "Home page loads without errors",
+      "Login flow works",
+      "Buttons working (1 tested)"
+    ],
+    "warnings": [
+      {
+        "test": "responsive_design",
+        "message": "No video elements found on mobile"
+      }
+    ]
   }
 ]

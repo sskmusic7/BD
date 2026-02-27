@@ -135,5 +135,46 @@
       "No duplicate buttons",
       "No duplicate images"
     ]
+  },
+  {
+    "timestamp": "2026-02-27T04:49:12.135Z",
+    "iteration": 5,
+    "issues": [
+      {
+        "type": "audit_error",
+        "severity": "high",
+        "message": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n",
+        "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://bodydouble-oarailnku-kayahs-projects.vercel.app/\", waiting until \"networkidle\"\n\n    at runAestheticAudit (/Users/sskmusic/BodyDouble/audit-agents/aesthetic-audit.js:41:16)\n    at async runLoop (/Users/sskmusic/BodyDouble/audit-agents/aesthetic-audit.js:249:25)"
+      }
+    ],
+    "warnings": [],
+    "passed": []
+  },
+  {
+    "timestamp": "2026-02-27T04:54:35.482Z",
+    "iteration": 3,
+    "issues": [
+      {
+        "type": "missing_layout_toggle",
+        "severity": "medium",
+        "message": "Layout toggle buttons not found"
+      }
+    ],
+    "warnings": [
+      {
+        "type": "background_not_visible",
+        "message": "Background may not be visible on body"
+      },
+      {
+        "type": "overlapping_elements",
+        "message": "Found 80 potential overlapping elements",
+        "count": 80
+      }
+    ],
+    "passed": [
+      "No duplicate chat boxes",
+      "No duplicate buttons",
+      "No duplicate images"
+    ]
   }
 ]
