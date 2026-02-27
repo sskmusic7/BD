@@ -220,6 +220,19 @@ async function autoFix(issues, fixesApplied) {
     }
     
     if (issue.type === 'missing_layout_toggle' || issue.type === 'layout_toggle_missing') {
+      // Check if we already tried to fix this
+      const alreadyFixed = fixesApplied.find(f => f.type === 'layout_toggle' && f.applied);
+      if (alreadyFixed) {
+        fixes.push({
+          type: 'layout_toggle',
+          action: 'needs_deployment',
+          message: 'Layout toggle fix already applied to code - needs frontend deployment to take effect',
+          applied: false,
+          canAutoFix: false
+        });
+        return fixes; // Skip further processing
+      }
+      
       // Fix layout toggle visibility in SessionPage.js
       const sessionPagePath = path.join(__dirname, '..', 'src', 'components', 'SessionPage.js');
       if (fs.existsSync(sessionPagePath)) {
@@ -229,17 +242,29 @@ async function autoFix(issues, fixesApplied) {
           
           // Check if layout toggle exists but might need better visibility
           if (code.includes('Layout Toggle Button')) {
+            // Check if it already has z-50 and proper styling
+            if (code.includes('z-50') && code.includes('bg-black/70')) {
+              fixes.push({
+                type: 'layout_toggle',
+                action: 'already_optimized',
+                message: 'Layout toggle already optimized in code - issue is on deployed site, needs deployment',
+                applied: false,
+                canAutoFix: false
+              });
+              return fixes;
+            }
+            
             // Make sure it has high z-index and is always visible
-            if (!code.includes('z-50') || code.includes('z-10')) {
+            if (!code.includes('z-50')) {
               code = code.replace(
-                /(\{/\* Layout Toggle Button \*\/\s*<div className="[^"]*")/,
+                /(\{\/\* Layout Toggle Button \*\/\s*<div className="[^"]*")/,
                 '{/* Layout Toggle Button */\n        <div className="flex justify-end mb-4 z-50 relative"'
               );
               modified = true;
             }
             
             // Ensure buttons have strong contrast
-            if (code.includes('bg-white/40') && !code.includes('bg-black/')) {
+            if (code.includes('bg-white/40') && !code.includes('bg-black/70')) {
               code = code.replace(
                 /bg-white\/40 text-white/g,
                 'bg-black/70 text-white border-2 border-white/40'
@@ -252,11 +277,11 @@ async function autoFix(issues, fixesApplied) {
               fixes.push({
                 type: 'layout_toggle',
                 action: 'improved_visibility',
-                message: 'Improved layout toggle button visibility in SessionPage.js',
+                message: 'Improved layout toggle button visibility in SessionPage.js - needs deployment',
                 applied: true,
                 canAutoFix: true
               });
-              console.log(`   ✅ FIXED: Improved layout toggle visibility`);
+              console.log(`   ✅ FIXED: Improved layout toggle visibility (deployment needed)`);
             } else {
               fixes.push({
                 type: 'layout_toggle',
