@@ -725,7 +725,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
               {/* Video Area */}
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* User Video */}
+                  {/* User Video */}
                 <div className="relative bg-gray-800 rounded-xl aspect-video overflow-hidden">
                   <video
                     ref={localVideoRef}
@@ -794,7 +794,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
               </div>
 
               {/* Controls */}
-              <div className="flex justify-center space-x-4">
+              <div className="flex justify-center space-x-4 mt-4">
                 <button
                   onClick={toggleVideo}
                   className={`p-3 rounded-full transition-colors ${
@@ -843,6 +843,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                   <XCircle className="w-5 h-5 text-white" />
                 </button>
               </div>
+            </div>
             </div>
 
             {/* Goals Section */}
@@ -954,6 +955,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
             </div>
           </div>
         )}
+        </>
 
         {/* Session Info */}
         <div className="mt-6 bg-white/10 backdrop-blur-md rounded-2xl p-6">
@@ -978,8 +980,6 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
             </div>
           </div>
         </div>
-        </>
-      </div>
       </div>
     </div>
   );
