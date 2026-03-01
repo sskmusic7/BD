@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as friends from "../friends.js";
+import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as users from "../users.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   friends: typeof friends;
+  http: typeof http;
   invites: typeof invites;
   users: typeof users;
 }>;
