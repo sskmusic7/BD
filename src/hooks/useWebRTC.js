@@ -123,13 +123,14 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     if (localVideoRef.current && localStreamRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current;
     }
-  }, [localVideoRef.current]);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteVideoRef.current, remoteStream]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteStream]);
 
   useEffect(() => {
     if (!socket || !sessionId) return;
