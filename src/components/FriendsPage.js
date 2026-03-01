@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, MessageCircle, Clock, Search } from 'lucide-react';
+import { Users, UserPlus, MessageCircle, Clock, Search, Link } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
 
-const FriendsPage = ({ socket, user }) => {
+const FriendsPage = ({ socket, user, useConvex, convexFriends, createInviteLink }) => {
+  const [inviteCopied, setInviteCopied] = useState(false);
   const { currentBackground } = useBackground();
   const [friends, setFriends] = useState([]);
   const [invites, setInvites] = useState([]);
 
   useEffect(() => {
-    if (socket) {
-      // Request friends list
+    if (useConvex && convexFriends) {
+      setFriends(convexFriends.map((f) => ({
+        id: f._id,
+        name: f.displayName,
+        username: f.username,
+        focusStyle: f.focusStyle,
+        workType: f.workType,
+        isOnline: false,
+        currentSession: null,
+      })));
+    }
+  }, [useConvex, convexFriends]);
+
+  useEffect(() => {
+    if (socket && !useConvex) {
       socket.emit('get-friends');
 
       socket.on('friends-list', (friendsList) => {
@@ -34,7 +48,7 @@ const FriendsPage = ({ socket, user }) => {
         socket.off('session-invite');
       };
     }
-  }, [socket]);
+  }, [socket, useConvex]);
 
   const inviteFriend = (friendId) => {
     if (socket) {
@@ -110,6 +124,25 @@ const FriendsPage = ({ socket, user }) => {
             <Users className="w-5 h-5 mr-2" />
             Your Friends ({friends.length})
           </h2>
+          {useConvex && (
+            <button
+              onClick={async () => {
+                try {
+                  const token = await createInviteLink({});
+                  const url = `${window.location.origin}/invite/${token}`;
+                  await navigator.clipboard.writeText(url);
+                  setInviteCopied(true);
+                  setTimeout(() => setInviteCopied(false), 2000);
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Link className="w-4 h-4" />
+              {inviteCopied ? 'Copied!' : 'Copy Invite Link'}
+            </button>
+          )}
         </div>
 
         {friends.length === 0 ? (
