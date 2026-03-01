@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from './convexApi';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
@@ -153,8 +155,6 @@ function AppContentConvexInner() {
   const [showAuth, setShowAuth] = useState(true);
   const [pendingProfile, setPendingProfile] = useState(null);
 
-  const { useQuery, useMutation } = require('convex/react');
-  const { api } = require('./convexApi');
   const appUser = useQuery(api.users.getCurrentUser);
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
