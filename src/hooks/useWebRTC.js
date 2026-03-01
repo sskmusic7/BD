@@ -118,6 +118,19 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, [initializeMedia, createPeerConnection, isInitiator, socket, sessionId]);
 
+  // Reassign srcObject when video refs change (e.g., layout changes)
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [localVideoRef.current]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteVideoRef.current, remoteStream]);
+
   useEffect(() => {
     if (!socket || !sessionId) return;
 
