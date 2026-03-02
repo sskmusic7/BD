@@ -153,12 +153,26 @@ function AppContentConvexInner() {
   const [currentSession, setCurrentSession] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [waitingForAuth, setWaitingForAuth] = useState(false);
 
   // Use Convex's built-in auth state — persists across page reloads/OAuth redirects
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const appUser = useQuery(api.users.getCurrentUser);
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
+
+  // Check if we're coming from an OAuth callback (has code/state params)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.has('code') || params.has('state')) {
+      // We're coming from OAuth callback - wait a bit for auth to stabilize
+      setWaitingForAuth(true);
+      const timer = setTimeout(() => {
+        setWaitingForAuth(false);
+      }, 2000); // Wait 2 seconds for auth state to load
+      return () => clearTimeout(timer);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -229,16 +243,18 @@ function AppContentConvexInner() {
   }
 
   // Waiting for Convex auth session to load (persisted from OAuth)
-  if (isAuthLoading) {
+  // Also wait if we're coming from an OAuth callback
+  if (isAuthLoading || waitingForAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+        <p className="mt-4 text-gray-600">Completing sign-in...</p>
       </div>
     );
   }
 
-  // Not authenticated → show sign-in screen
-  if (!isAuthenticated) {
+  // Not authenticated → show sign-in screen (but only if we're not waiting for OAuth)
+  if (!isAuthenticated && !waitingForAuth) {
     return <AuthScreen />;
   }
 
