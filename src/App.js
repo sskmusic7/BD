@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from './convexApi';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
@@ -152,13 +152,13 @@ function AppContentConvexInner() {
   const [user, setUser] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [showAuth, setShowAuth] = useState(true);
-  const [pendingProfile, setPendingProfile] = useState(null);
+  const [hasJoined, setHasJoined] = useState(false);
 
+  // Use Convex's built-in auth state — persists across page reloads/OAuth redirects
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const appUser = useQuery(api.users.getCurrentUser);
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
-  const [hasJoined, setHasJoined] = useState(false);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -193,18 +193,6 @@ function AppContentConvexInner() {
     };
   }, [socket]);
 
-  const handleProfileComplete = (profileData) => {
-    setPendingProfile(profileData);
-    if (socket) socket.emit('join', profileData);
-  };
-
-  useEffect(() => {
-    if (pendingProfile && socket && isConnected) {
-      socket.emit('join', pendingProfile);
-      setPendingProfile(null);
-    }
-  }, [pendingProfile, socket, isConnected]);
-
   useEffect(() => {
     if (!user && appUser && socket && isConnected && !hasJoined) {
       setHasJoined(true);
@@ -223,11 +211,15 @@ function AppContentConvexInner() {
     if (socket) socket.disconnect();
     setUser(null);
     setCurrentSession(null);
-    setShowAuth(true);
     setHasJoined(false);
     setSocket(io(config.SERVER_URL));
   };
 
+  const handleProfileComplete = (profileData) => {
+    if (socket && isConnected) socket.emit('join', profileData);
+  };
+
+  // Invite pages bypass auth checks
   if (isInvitePage) {
     return (
       <Routes>
@@ -236,6 +228,35 @@ function AppContentConvexInner() {
     );
   }
 
+  // Waiting for Convex auth session to load (persisted from OAuth)
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
+  // Not authenticated → show sign-in screen
+  if (!isAuthenticated) {
+    return <AuthScreen />;
+  }
+
+  // Authenticated but appUser profile not loaded yet
+  if (appUser === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
+  // Authenticated but no BodyDouble profile yet → collect username/preferences
+  if (appUser === null) {
+    return <ProfileSetupConvex onComplete={handleProfileComplete} />;
+  }
+
+  // Waiting for socket connection
   if (!isConnected) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -243,30 +264,6 @@ function AppContentConvexInner() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
           <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (showAuth && appUser === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-      </div>
-    );
-  }
-
-  if (showAuth && appUser === null) {
-    return <AuthScreen onAuthComplete={() => setShowAuth(false)} />;
-  }
-
-  if (showAuth === false && appUser === null) {
-    return <ProfileSetupConvex onComplete={handleProfileComplete} />;
-  }
-
-  if (!user && appUser && !hasJoined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
       </div>
     );
   }
