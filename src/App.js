@@ -164,15 +164,23 @@ function AppContentConvexInner() {
   // Check if we're coming from an OAuth callback (has code/state params)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.has('code') || params.has('state')) {
+    const hasOAuthParams = params.has('code') || params.has('state');
+    if (hasOAuthParams) {
+      console.log('🔐 OAuth callback detected, waiting for auth state...', {
+        hasCode: params.has('code'),
+        hasState: params.has('state'),
+        isAuthLoading,
+        isAuthenticated,
+      });
       // We're coming from OAuth callback - wait a bit for auth to stabilize
       setWaitingForAuth(true);
       const timer = setTimeout(() => {
+        console.log('🔐 Auth wait complete', { isAuthenticated, appUser: appUser !== undefined });
         setWaitingForAuth(false);
       }, 2000); // Wait 2 seconds for auth state to load
       return () => clearTimeout(timer);
     }
-  }, [location.search]);
+  }, [location.search, isAuthLoading, isAuthenticated, appUser]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -242,6 +250,17 @@ function AppContentConvexInner() {
     );
   }
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Auth state:', {
+      isAuthLoading,
+      isAuthenticated,
+      waitingForAuth,
+      appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
+      hasOAuthParams: new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('state'),
+    });
+  }, [isAuthLoading, isAuthenticated, waitingForAuth, appUser, location.search]);
+
   // Waiting for Convex auth session to load (persisted from OAuth)
   // Also wait if we're coming from an OAuth callback
   if (isAuthLoading || waitingForAuth) {
@@ -255,6 +274,7 @@ function AppContentConvexInner() {
 
   // Not authenticated → show sign-in screen (but only if we're not waiting for OAuth)
   if (!isAuthenticated && !waitingForAuth) {
+    console.log('❌ Not authenticated, showing login screen');
     return <AuthScreen />;
   }
 
