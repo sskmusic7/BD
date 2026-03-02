@@ -6,7 +6,7 @@ import { useBackground } from '../context/BackgroundContext';
 const AuthScreen = ({ onAuthComplete }) => {
   const { currentBackground } = useBackground();
   const { signIn } = useAuthActions();
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [mode, setMode] = useState('signIn'); // 'signIn' | 'signUp'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -22,7 +22,7 @@ const AuthScreen = ({ onAuthComplete }) => {
         flow: mode,
         email: email.trim(),
         password,
-        ...(mode === 'signup' && { name: name.trim() || email.split('@')[0] }),
+        ...(mode === 'signUp' && { name: name.trim() || email.split('@')[0] }),
       });
       if (result.signingIn) {
         onAuthComplete?.();
@@ -125,7 +125,7 @@ const AuthScreen = ({ onAuthComplete }) => {
           </div>
 
           <form onSubmit={handlePasswordAuth} className="space-y-4">
-            {mode === 'signup' && (
+            {mode === 'signUp' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                 <div className="relative">
@@ -162,9 +162,9 @@ const AuthScreen = ({ onAuthComplete }) => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'signup' ? 'Min 8 characters' : 'Your password'}
+                  placeholder={mode === 'signUp' ? 'Min 8 characters' : 'Your password'}
                   required
-                  minLength={mode === 'signup' ? 8 : 1}
+                  minLength={mode === 'signUp' ? 8 : 1}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -174,17 +174,17 @@ const AuthScreen = ({ onAuthComplete }) => {
               disabled={loading}
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50"
             >
-              {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+              {loading ? 'Please wait...' : mode === 'signIn' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-600">
-            {mode === 'signin' ? (
+            {mode === 'signIn' ? (
               <>
                 Don&apos;t have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('signup')}
+                  onClick={() => setMode('signUp')}
                   className="text-blue-600 hover:underline font-medium"
                 >
                   Sign up
@@ -195,7 +195,7 @@ const AuthScreen = ({ onAuthComplete }) => {
                 Already have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setMode('signin')}
+                  onClick={() => setMode('signIn')}
                   className="text-blue-600 hover:underline font-medium"
                 >
                   Sign in
