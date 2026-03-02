@@ -165,22 +165,34 @@ function AppContentConvexInner() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const hasOAuthParams = params.has('code') || params.has('state');
-    if (hasOAuthParams) {
+    if (hasOAuthParams && !isAuthenticated && isAuthLoading) {
       console.log('🔐 OAuth callback detected, waiting for auth state...', {
         hasCode: params.has('code'),
         hasState: params.has('state'),
         isAuthLoading,
         isAuthenticated,
       });
-      // We're coming from OAuth callback - wait a bit for auth to stabilize
       setWaitingForAuth(true);
-      const timer = setTimeout(() => {
-        console.log('🔐 Auth wait complete', { isAuthenticated, appUser: appUser !== undefined });
-        setWaitingForAuth(false);
-      }, 2000); // Wait 2 seconds for auth state to load
-      return () => clearTimeout(timer);
     }
-  }, [location.search, isAuthLoading, isAuthenticated, appUser]);
+    // Stop waiting once auth is loaded and we're authenticated, or after timeout
+    if (waitingForAuth) {
+      if (isAuthenticated && !isAuthLoading) {
+        console.log('🔐 Auth complete, authenticated!');
+        setWaitingForAuth(false);
+        // Clean up URL params
+        if (hasOAuthParams) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } else {
+        // Timeout after 5 seconds max
+        const timer = setTimeout(() => {
+          console.log('🔐 Auth wait timeout', { isAuthenticated, isAuthLoading });
+          setWaitingForAuth(false);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [location.search, isAuthLoading, isAuthenticated, appUser, waitingForAuth]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
