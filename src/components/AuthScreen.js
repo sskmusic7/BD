@@ -38,13 +38,23 @@ const AuthScreen = ({ onAuthComplete }) => {
     setError('');
     setLoading(true);
     try {
+      console.log('Starting Google OAuth...');
       const result = await signIn('google');
+      console.log('signIn result:', result);
       if (result.redirect) {
+        console.log('Redirecting to:', result.redirect.toString());
         window.location.href = result.redirect.toString();
       } else if (result.signingIn) {
+        console.log('Already signing in, calling onAuthComplete');
         onAuthComplete?.();
+        setLoading(false);
+      } else {
+        console.warn('Unexpected signIn result:', result);
+        setError('Unexpected response from Google sign-in');
+        setLoading(false);
       }
     } catch (err) {
+      console.error('Google OAuth error:', err);
       setError(err.message || 'Google sign-in failed');
       setLoading(false);
     }
