@@ -165,34 +165,39 @@ function AppContentConvexInner() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const hasOAuthParams = params.has('code') || params.has('state');
-    if (hasOAuthParams && !isAuthenticated && isAuthLoading) {
+    
+    // If we have OAuth params, we're coming from OAuth callback - wait for auth
+    if (hasOAuthParams) {
       console.log('🔐 OAuth callback detected, waiting for auth state...', {
         hasCode: params.has('code'),
         hasState: params.has('state'),
         isAuthLoading,
         isAuthenticated,
+        pathname: location.pathname,
       });
       setWaitingForAuth(true);
+      
+      // Clean up URL params immediately to prevent re-triggering
+      const cleanPath = location.pathname || '/';
+      window.history.replaceState({}, '', cleanPath);
     }
-    // Stop waiting once auth is loaded and we're authenticated, or after timeout
+    
+    // Stop waiting once auth is loaded and we're authenticated
     if (waitingForAuth) {
       if (isAuthenticated && !isAuthLoading) {
-        console.log('🔐 Auth complete, authenticated!');
+        console.log('🔐 Auth complete, authenticated! Redirecting to home...');
         setWaitingForAuth(false);
-        // Clean up URL params
-        if (hasOAuthParams) {
-          window.history.replaceState({}, '', window.location.pathname);
+        // Ensure we're on the home page
+        if (location.pathname !== '/') {
+          window.history.replaceState({}, '', '/');
         }
-      } else {
-        // Timeout after 5 seconds max
-        const timer = setTimeout(() => {
-          console.log('🔐 Auth wait timeout', { isAuthenticated, isAuthLoading });
-          setWaitingForAuth(false);
-        }, 5000);
-        return () => clearTimeout(timer);
+      } else if (!isAuthLoading && !isAuthenticated) {
+        // Auth finished loading but we're not authenticated - OAuth failed
+        console.log('🔐 OAuth callback completed but not authenticated');
+        setWaitingForAuth(false);
       }
     }
-  }, [location.search, isAuthLoading, isAuthenticated, appUser, waitingForAuth]);
+  }, [location.search, location.pathname, isAuthLoading, isAuthenticated, waitingForAuth]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -284,9 +289,9 @@ function AppContentConvexInner() {
     );
   }
 
-  // Not authenticated → show sign-in screen (but only if we're not waiting for OAuth)
+  // Not authenticated → show sign-in screen
   if (!isAuthenticated && !waitingForAuth) {
-    console.log('❌ Not authenticated, showing login screen');
+    console.log('❌ Not authenticated, showing login screen', { pathname: location.pathname });
     return <AuthScreen />;
   }
 
