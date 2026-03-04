@@ -160,17 +160,36 @@ function AppContentConvexInner() {
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
 
-  // Clean up OAuth params after auth loads
+  // Debug logging to track auth state changes
   useEffect(() => {
-    if (!isAuthLoading && location.search) {
-      const params = new URLSearchParams(location.search);
-      if (params.has('code') || params.has('state') || params.has('error')) {
-        // Clean up URL params after OAuth completes (whether success or failure)
-        const cleanPath = location.pathname || '/';
-        window.history.replaceState({}, '', cleanPath);
-      }
+    const params = new URLSearchParams(location.search);
+    const hasOAuthParams = params.has('code') || params.has('state') || params.has('error');
+
+    console.log('🔍 Auth State Debug:', {
+      isAuthenticated,
+      isAuthLoading,
+      appUser: appUser === undefined ? 'loading' : appUser === null ? 'null' : 'exists',
+      hasOAuthParams,
+      pathname: location.pathname,
+      search: location.search,
+    });
+  }, [isAuthenticated, isAuthLoading, appUser, location.search, location.pathname]);
+
+  // Clean up OAuth params AFTER auth has loaded and stabilized
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasOAuthParams = params.has('code') || params.has('state') || params.has('error');
+
+    // Only clean up if:
+    // 1. Auth is done loading (not loading)
+    // 2. We have OAuth params in URL
+    // 3. Either authenticated OR appUser has loaded (not undefined)
+    if (!isAuthLoading && hasOAuthParams && appUser !== undefined) {
+      console.log('🧹 Cleaning up OAuth params, authenticated:', isAuthenticated);
+      const cleanPath = location.pathname || '/';
+      window.history.replaceState({}, '', cleanPath);
     }
-  }, [isAuthLoading, location.search, location.pathname]);
+  }, [isAuthLoading, isAuthenticated, appUser, location.search, location.pathname]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
