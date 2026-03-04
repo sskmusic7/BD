@@ -7,6 +7,7 @@ import App from './App';
 import config from './config/config';
 
 const convexUrl = config.CONVEX_URL;
+console.log('🔧 Initializing Convex client with URL:', convexUrl);
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
