@@ -18,6 +18,7 @@ const AuthScreen = ({ onAuthComplete }) => {
     setError('');
     setLoading(true);
     try {
+      // Don't pass redirectTo - let Convex use its default (SITE_URL)
       const result = await signIn('password', {
         flow: mode,
         email: email.trim(),
@@ -39,10 +40,12 @@ const AuthScreen = ({ onAuthComplete }) => {
     setLoading(true);
     try {
       console.log('Starting Google OAuth...');
+      // Don't pass redirectTo - let Convex use its default (SITE_URL: bodydoubleapp.com)
       const result = await signIn('google');
       console.log('signIn result:', result);
+
       if (result.redirect) {
-        console.log('Redirecting to:', result.redirect.toString());
+        console.log('Redirecting to Google OAuth...');
         window.location.href = result.redirect.toString();
       } else if (result.signingIn) {
         console.log('Already signing in, calling onAuthComplete');

@@ -1,3 +1,5 @@
 {
-  "functions": "convex/"
+  "functions": "convex/",
+  "project": "sskmusic7|bodydouble",
+  "deployment": "dev:posh-lobster-71"
 }

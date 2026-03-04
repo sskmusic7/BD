@@ -257,6 +257,32 @@ function AppContentConvexInner() {
     if (socket && isConnected) socket.emit('join', profileData);
   };
 
+  // Debug logging - Enhanced with OAuth callback detection (must be before any conditional returns)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasOAuthParams = params.has('code') || params.has('state');
+    const hasError = params.has('error');
+    const errorDescription = params.get('error_description');
+
+    console.log('🔍 Auth state:', {
+      isAuthLoading,
+      isAuthenticated,
+      waitingForAuth,
+      appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
+      hasOAuthParams,
+      hasError,
+      errorDescription,
+      pathname: location.pathname,
+      searchParams: location.search,
+    });
+
+    // If we have OAuth params but auth is not completing after 5 seconds, log a warning
+    if (hasOAuthParams && waitingForAuth && !isAuthenticated && !isAuthLoading) {
+      console.error('⚠️ OAuth callback detected but authentication failed to complete. Check if Convex is running and the callback URL is correct.');
+      console.error('Expected callback URL format: https://posh-lobster-71.eu-west-1.convex.site/api/auth/callback/google');
+    }
+  }, [isAuthLoading, isAuthenticated, waitingForAuth, appUser, location.search, location.pathname]);
+
   // Invite pages bypass auth checks
   if (isInvitePage) {
     return (
@@ -265,17 +291,6 @@ function AppContentConvexInner() {
       </Routes>
     );
   }
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 Auth state:', {
-      isAuthLoading,
-      isAuthenticated,
-      waitingForAuth,
-      appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
-      hasOAuthParams: new URLSearchParams(location.search).has('code') || new URLSearchParams(location.search).has('state'),
-    });
-  }, [isAuthLoading, isAuthenticated, waitingForAuth, appUser, location.search]);
 
   // Waiting for Convex auth session to load (persisted from OAuth)
   // Also wait if we're coming from an OAuth callback
@@ -290,7 +305,34 @@ function AppContentConvexInner() {
 
   // Not authenticated → show sign-in screen
   if (!isAuthenticated && !waitingForAuth) {
-    console.log('❌ Not authenticated, showing login screen', { pathname: location.pathname });
+    const params = new URLSearchParams(location.search);
+    const hasOAuthError = params.has('error');
+    const errorMessage = params.get('error_description');
+
+    console.log('❌ Not authenticated, showing login screen', {
+      pathname: location.pathname,
+      hasOAuthError,
+      errorMessage,
+    });
+
+    if (hasOAuthError) {
+      console.error('OAuth Error:', errorMessage);
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-red-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
+            <h2 className="text-xl font-bold text-red-600 mb-4">Authentication Error</h2>
+            <p className="text-gray-700 mb-4">{errorMessage || 'An error occurred during sign-in'}</p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return <AuthScreen />;
   }
 
