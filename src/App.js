@@ -153,7 +153,6 @@ function AppContentConvexInner() {
   const [currentSession, setCurrentSession] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
-  const [waitingForAuth, setWaitingForAuth] = useState(false);
 
   // Use Convex's built-in auth state — persists across page reloads/OAuth redirects
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
@@ -161,42 +160,17 @@ function AppContentConvexInner() {
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
 
-  // Check if we're coming from an OAuth callback (has code/state params)
+  // Clean up OAuth params after auth loads
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const hasOAuthParams = params.has('code') || params.has('state');
-    
-    // If we have OAuth params, we're coming from OAuth callback - wait for auth
-    if (hasOAuthParams && !waitingForAuth) {
-      console.log('🔐 OAuth callback detected, waiting for auth state...', {
-        hasCode: params.has('code'),
-        hasState: params.has('state'),
-        isAuthLoading,
-        isAuthenticated,
-        pathname: location.pathname,
-      });
-      setWaitingForAuth(true);
-      // DON'T clean up params yet - Convex needs them to complete OAuth!
-    }
-    
-    // Stop waiting once auth is loaded and we're authenticated
-    if (waitingForAuth) {
-      if (isAuthenticated && !isAuthLoading) {
-        console.log('🔐 Auth complete, authenticated! Cleaning up URL...');
-        setWaitingForAuth(false);
-        // NOW it's safe to clean up params after OAuth completes
-        const cleanPath = location.pathname || '/';
-        window.history.replaceState({}, '', cleanPath);
-      } else if (!isAuthLoading && !isAuthenticated) {
-        // Auth finished loading but we're not authenticated - OAuth failed
-        console.log('🔐 OAuth callback completed but not authenticated');
-        setWaitingForAuth(false);
-        // Clean up params even on failure
+    if (!isAuthLoading && location.search) {
+      const params = new URLSearchParams(location.search);
+      if (params.has('code') || params.has('state') || params.has('error')) {
+        // Clean up URL params after OAuth completes (whether success or failure)
         const cleanPath = location.pathname || '/';
         window.history.replaceState({}, '', cleanPath);
       }
     }
-  }, [location.search, location.pathname, isAuthLoading, isAuthenticated, waitingForAuth]);
+  }, [isAuthLoading, location.search, location.pathname]);
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -257,37 +231,6 @@ function AppContentConvexInner() {
     if (socket && isConnected) socket.emit('join', profileData);
   };
 
-  // Debug logging - Enhanced with OAuth callback detection (must be before any conditional returns)
-  // Only log when auth state actually changes to avoid spam
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const hasOAuthParams = params.has('code') || params.has('state');
-    const hasError = params.has('error');
-    const errorDescription = params.get('error_description');
-
-    // Only log on significant changes, not every render
-    const shouldLog = hasOAuthParams || hasError || isAuthLoading || waitingForAuth;
-
-    if (shouldLog) {
-      console.log('🔍 Auth state:', {
-        isAuthLoading,
-        isAuthenticated,
-        waitingForAuth,
-        appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
-        hasOAuthParams,
-        hasError,
-        errorDescription,
-        pathname: location.pathname,
-      });
-    }
-
-    // If we have OAuth params but auth is not completing after 5 seconds, log a warning
-    if (hasOAuthParams && waitingForAuth && !isAuthenticated && !isAuthLoading) {
-      console.error('⚠️ OAuth callback detected but authentication failed to complete. Check if Convex is running and the callback URL is correct.');
-      console.error('Expected callback URL format: https://posh-lobster-71.eu-west-1.convex.site/api/auth/callback/google');
-    }
-  }, [isAuthLoading, isAuthenticated, waitingForAuth, appUser, location.search, location.pathname]);
-
   // Invite pages bypass auth checks
   if (isInvitePage) {
     return (
@@ -297,47 +240,18 @@ function AppContentConvexInner() {
     );
   }
 
-  // Waiting for Convex auth session to load (persisted from OAuth)
-  // Also wait if we're coming from an OAuth callback
-  if (isAuthLoading || waitingForAuth) {
+  // Waiting for Convex auth session to load
+  if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-        <p className="mt-4 text-gray-600">Completing sign-in...</p>
+        <p className="mt-4 text-gray-600">Loading...</p>
       </div>
     );
   }
 
   // Not authenticated → show sign-in screen
-  if (!isAuthenticated && !waitingForAuth) {
-    const params = new URLSearchParams(location.search);
-    const hasOAuthError = params.has('error');
-    const errorMessage = params.get('error_description');
-
-    console.log('❌ Not authenticated, showing login screen', {
-      pathname: location.pathname,
-      hasOAuthError,
-      errorMessage,
-    });
-
-    if (hasOAuthError) {
-      console.error('OAuth Error:', errorMessage);
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-red-50">
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
-            <h2 className="text-xl font-bold text-red-600 mb-4">Authentication Error</h2>
-            <p className="text-gray-700 mb-4">{errorMessage || 'An error occurred during sign-in'}</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      );
-    }
-
+  if (!isAuthenticated) {
     return <AuthScreen />;
   }
 
