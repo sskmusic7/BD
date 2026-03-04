@@ -167,7 +167,7 @@ function AppContentConvexInner() {
     const hasOAuthParams = params.has('code') || params.has('state');
     
     // If we have OAuth params, we're coming from OAuth callback - wait for auth
-    if (hasOAuthParams) {
+    if (hasOAuthParams && !waitingForAuth) {
       console.log('🔐 OAuth callback detected, waiting for auth state...', {
         hasCode: params.has('code'),
         hasState: params.has('state'),
@@ -176,25 +176,24 @@ function AppContentConvexInner() {
         pathname: location.pathname,
       });
       setWaitingForAuth(true);
-      
-      // Clean up URL params immediately to prevent re-triggering
-      const cleanPath = location.pathname || '/';
-      window.history.replaceState({}, '', cleanPath);
+      // DON'T clean up params yet - Convex needs them to complete OAuth!
     }
     
     // Stop waiting once auth is loaded and we're authenticated
     if (waitingForAuth) {
       if (isAuthenticated && !isAuthLoading) {
-        console.log('🔐 Auth complete, authenticated! Redirecting to home...');
+        console.log('🔐 Auth complete, authenticated! Cleaning up URL...');
         setWaitingForAuth(false);
-        // Ensure we're on the home page
-        if (location.pathname !== '/') {
-          window.history.replaceState({}, '', '/');
-        }
+        // NOW it's safe to clean up params after OAuth completes
+        const cleanPath = location.pathname || '/';
+        window.history.replaceState({}, '', cleanPath);
       } else if (!isAuthLoading && !isAuthenticated) {
         // Auth finished loading but we're not authenticated - OAuth failed
         console.log('🔐 OAuth callback completed but not authenticated');
         setWaitingForAuth(false);
+        // Clean up params even on failure
+        const cleanPath = location.pathname || '/';
+        window.history.replaceState({}, '', cleanPath);
       }
     }
   }, [location.search, location.pathname, isAuthLoading, isAuthenticated, waitingForAuth]);
