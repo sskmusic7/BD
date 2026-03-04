@@ -258,23 +258,28 @@ function AppContentConvexInner() {
   };
 
   // Debug logging - Enhanced with OAuth callback detection (must be before any conditional returns)
+  // Only log when auth state actually changes to avoid spam
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const hasOAuthParams = params.has('code') || params.has('state');
     const hasError = params.has('error');
     const errorDescription = params.get('error_description');
 
-    console.log('🔍 Auth state:', {
-      isAuthLoading,
-      isAuthenticated,
-      waitingForAuth,
-      appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
-      hasOAuthParams,
-      hasError,
-      errorDescription,
-      pathname: location.pathname,
-      searchParams: location.search,
-    });
+    // Only log on significant changes, not every render
+    const shouldLog = hasOAuthParams || hasError || isAuthLoading || waitingForAuth;
+
+    if (shouldLog) {
+      console.log('🔍 Auth state:', {
+        isAuthLoading,
+        isAuthenticated,
+        waitingForAuth,
+        appUser: appUser !== undefined ? (appUser ? 'exists' : 'null') : 'loading',
+        hasOAuthParams,
+        hasError,
+        errorDescription,
+        pathname: location.pathname,
+      });
+    }
 
     // If we have OAuth params but auth is not completing after 5 seconds, log a warning
     if (hasOAuthParams && waitingForAuth && !isAuthenticated && !isAuthLoading) {
