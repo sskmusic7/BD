@@ -15,8 +15,14 @@ import Google from "@auth/core/providers/google";
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.AUTH_GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+        },
+      },
     }),
   ],
 });
