@@ -57,8 +57,10 @@ const AuthScreen = ({ onAuthComplete }) => {
     setLoading(true);
     try {
       console.log('Starting Google OAuth...');
-      // Don't pass redirectTo - let Convex use its default (SITE_URL: bodydoubleapp.com)
-      const result = await signIn('google');
+      // Explicitly set redirect URL to Convex deployment's HTTP endpoint
+      const result = await signIn('google', {
+        redirectUrl: 'https://posh-lobster-71.eu-west-1.convex.site',
+      });
       console.log('signIn result:', result);
 
       if (result.redirect) {
