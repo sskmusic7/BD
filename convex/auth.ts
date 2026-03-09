@@ -1,6 +1,12 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import Google from "@auth/core/providers/google";
 
+// Debug: Log environment variables
+const clientId = process.env.AUTH_GOOGLE_CLIENT_ID;
+const clientSecret = process.env.AUTH_GOOGLE_CLIENT_SECRET;
+console.log('[Auth Debug] AUTH_GOOGLE_CLIENT_ID:', clientId ? `${clientId.substring(0, 10)}...` : 'UNDEFINED');
+console.log('[Auth Debug] AUTH_GOOGLE_CLIENT_SECRET:', clientSecret ? 'SET' : 'UNDEFINED');
+
 /**
  * Convex Auth configuration.
  * - Google: OAuth sign in
@@ -14,15 +20,17 @@ import Google from "@auth/core/providers/google";
  */
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET || "",
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
+    ...(clientId && clientSecret ? [
+      Google({
+        clientId,
+        clientSecret,
+        authorization: {
+          params: {
+            prompt: "consent",
+            access_type: "offline",
+          },
         },
-      },
-    }),
+      }),
+    ] : []),
   ],
 });
