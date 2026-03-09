@@ -22,5 +22,8 @@ export const api = {
     getInvite: "invites:getInvite",
     acceptInvite: "invites:acceptInvite",
   },
+  testAuthConfig: {
+    test: "testAuthConfig:test",
+  },
 };
 

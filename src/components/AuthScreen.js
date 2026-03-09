@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useMutation } from 'convex/react';
+import { api } from '../convexApi';
 import { Mail, Lock, User } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
 
@@ -12,6 +14,21 @@ const AuthScreen = ({ onAuthComplete }) => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Test mutation to check environment variables
+  const testAuthConfig = useMutation(api.testAuthConfig.test);
+
+  const handleTestAuth = async () => {
+    try {
+      console.log('🧪 Testing auth configuration...');
+      const result = await testAuthConfig();
+      console.log('🧪 Auth config test result:', result);
+      alert(`Auth Config Test:\n\nClient ID: ${result.clientId}\nClient Secret: ${result.clientSecret}\nSite URL: ${result.siteUrl}`);
+    } catch (err) {
+      console.error('🧪 Auth config test error:', err);
+      alert(`Auth Config Test Error:\n\n${err.message}`);
+    }
+  };
 
   const handlePasswordAuth = async (e) => {
     e.preventDefault();
@@ -116,6 +133,14 @@ const AuthScreen = ({ onAuthComplete }) => {
               />
             </svg>
             Continue with Google
+          </button>
+
+          {/* Debug test button */}
+          <button
+            onClick={handleTestAuth}
+            className="w-full mt-2 bg-gray-100 text-gray-600 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            🧪 Test Auth Config
           </button>
 
           <div className="relative">
