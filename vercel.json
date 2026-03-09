@@ -11,5 +11,11 @@
       "destination": "https://bodydoubleapp.com",
       "permanent": true
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/auth/:path*",
+      "destination": "https://posh-lobster-71.eu-west-1.convex.site/api/auth/:path*"
+    }
   ]
 }
