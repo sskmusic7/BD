@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useMutation } from 'convex/react';
-import { api } from '../convexApi';
 import { Mail, Lock, User } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
 import { googleAuthService } from '../services/googleAuthService';

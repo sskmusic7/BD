@@ -176,14 +176,31 @@ function AppContentConvexInner() {
         // Check if user is already signed in
         if (googleAuthService.isUserSignedIn()) {
           console.log('✅ User already signed in with Google');
-          setAuthUserId(googleAuthService.getAuthUserId());
-          setGoogleProfile({
+          const authUserId = googleAuthService.getAuthUserId();
+          setAuthUserId(authUserId);
+
+          const profile = {
             email: googleAuthService.userProfile.email,
             name: googleAuthService.userProfile.name,
             picture: googleAuthService.userProfile.picture,
-          });
+          };
+          setGoogleProfile(profile);
+
+          // Also save to localStorage for backup
+          localStorage.setItem('auth_user_id', authUserId);
+          localStorage.setItem('google_profile', JSON.stringify(profile));
         } else {
           console.log('ℹ️ No active Google session found');
+
+          // Check localStorage for backup
+          const savedAuthUserId = localStorage.getItem('auth_user_id');
+          const savedGoogleProfile = localStorage.getItem('google_profile');
+
+          if (savedAuthUserId && savedGoogleProfile) {
+            console.log('✅ Restored auth state from localStorage');
+            setAuthUserId(savedAuthUserId);
+            setGoogleProfile(JSON.parse(savedGoogleProfile));
+          }
         }
 
         setIsAuthLoading(false);
@@ -199,12 +216,20 @@ function AppContentConvexInner() {
   // Handle auth completion from AuthScreen
   const handleAuthComplete = (authData) => {
     console.log('✅ Auth completed:', authData);
-    setAuthUserId(authData.authUserId);
-    setGoogleProfile({
+    const authUserId = authData.authUserId;
+    const googleProfile = {
       email: authData.email,
       name: authData.name,
       picture: authData.avatarUrl,
-    });
+    };
+
+    setAuthUserId(authUserId);
+    setGoogleProfile(googleProfile);
+
+    // Persist to localStorage
+    localStorage.setItem('auth_user_id', authUserId);
+    localStorage.setItem('google_profile', JSON.stringify(googleProfile));
+    console.log('✅ Auth state saved to localStorage');
   };
 
   // Handle logout
@@ -217,6 +242,11 @@ function AppContentConvexInner() {
     // Clear auth state
     setAuthUserId(null);
     setGoogleProfile(null);
+
+    // Clear localStorage
+    localStorage.removeItem('auth_user_id');
+    localStorage.removeItem('google_profile');
+    console.log('✅ Auth state cleared from localStorage');
 
     // Clear session and socket
     if (currentSession && socket) socket.emit('end-session');

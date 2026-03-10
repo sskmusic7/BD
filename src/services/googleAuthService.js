@@ -30,12 +30,69 @@ class GoogleAuthService {
 
     console.log('✅ Google Client ID found:', this.clientId.substring(0, 20) + '...');
 
+    // Restore session from localStorage if available
+    this.restoreSession();
+
     try {
       await this.initializeGis();
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize Google Identity Services:', error);
       return false;
+    }
+  }
+
+  /**
+   * Restore session from localStorage
+   */
+  restoreSession() {
+    try {
+      const savedToken = localStorage.getItem('google_access_token');
+      const savedProfile = localStorage.getItem('google_user_profile');
+
+      if (savedToken && savedProfile) {
+        this.accessToken = savedToken;
+        this.userProfile = JSON.parse(savedProfile);
+        console.log('✅ Session restored from localStorage:', {
+          email: this.userProfile.email,
+          name: this.userProfile.name,
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ Error restoring session from localStorage:', error);
+      // Clear corrupted data
+      localStorage.removeItem('google_access_token');
+      localStorage.removeItem('google_user_profile');
+    }
+  }
+
+  /**
+   * Save session to localStorage
+   */
+  saveSession() {
+    try {
+      if (this.accessToken) {
+        localStorage.setItem('google_access_token', this.accessToken);
+      }
+      if (this.userProfile) {
+        localStorage.setItem('google_user_profile', JSON.stringify(this.userProfile));
+      }
+      console.log('✅ Session saved to localStorage');
+    } catch (error) {
+      console.warn('⚠️ Error saving session to localStorage:', error);
+    }
+  }
+
+  /**
+   * Clear session from localStorage
+   */
+  clearSession() {
+    try {
+      localStorage.removeItem('google_access_token');
+      localStorage.removeItem('google_user_profile');
+      console.log('✅ Session cleared from localStorage');
+    } catch (error) {
+      console.warn('⚠️ Error clearing session from localStorage:', error);
     }
   }
 
@@ -117,6 +174,7 @@ class GoogleAuthService {
 
         try {
           await this.fetchUserProfile();
+          this.saveSession(); // Save to localStorage
           resolve(this.userProfile);
         } catch (error) {
           console.error('❌ Error fetching user profile:', error);
@@ -206,6 +264,7 @@ class GoogleAuthService {
 
     this.accessToken = null;
     this.userProfile = null;
+    this.clearSession(); // Clear from localStorage
     console.log('✅ Signed out');
   }
 }
