@@ -14,6 +14,7 @@ import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
 import AuthScreen from './components/AuthScreen';
 import InviteLanding from './components/InviteLanding';
+import { googleAuthService } from './services/googleAuthService';
 
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
@@ -154,42 +155,77 @@ function AppContentConvexInner() {
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Use Convex's built-in auth state — persists across page reloads/OAuth redirects
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const appUser = useQuery(api.users.getCurrentUser);
+  // Custom auth state for Google OAuth
+  const [authUserId, setAuthUserId] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [googleProfile, setGoogleProfile] = useState(null);
+
+  // Keep Convex queries
+  const appUser = useQuery(api.users.getCurrentUser, authUserId ? { authUserId } : 'skip');
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
 
-  // Debug logging to track auth state changes
+  // Initialize Google auth on mount
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const hasOAuthParams = params.has('code') || params.has('state') || params.has('error');
+    const initAuth = async () => {
+      console.log('🔐 Initializing auth...');
 
-    console.log('🔍 Auth State Debug:', {
-      isAuthenticated,
-      isAuthLoading,
-      appUser: appUser === undefined ? 'loading' : appUser === null ? 'null' : 'exists',
-      hasOAuthParams,
-      pathname: location.pathname,
-      search: location.search,
+      try {
+        await googleAuthService.initialize();
+
+        // Check if user is already signed in
+        if (googleAuthService.isUserSignedIn()) {
+          console.log('✅ User already signed in with Google');
+          setAuthUserId(googleAuthService.getAuthUserId());
+          setGoogleProfile({
+            email: googleAuthService.userProfile.email,
+            name: googleAuthService.userProfile.name,
+            picture: googleAuthService.userProfile.picture,
+          });
+        } else {
+          console.log('ℹ️ No active Google session found');
+        }
+
+        setIsAuthLoading(false);
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
+        setIsAuthLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  // Handle auth completion from AuthScreen
+  const handleAuthComplete = (authData) => {
+    console.log('✅ Auth completed:', authData);
+    setAuthUserId(authData.authUserId);
+    setGoogleProfile({
+      email: authData.email,
+      name: authData.name,
+      picture: authData.avatarUrl,
     });
-  }, [isAuthenticated, isAuthLoading, appUser, location.search, location.pathname]);
+  };
 
-  // Clean up OAuth params AFTER auth has loaded and stabilized
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const hasOAuthParams = params.has('code') || params.has('state') || params.has('error');
+  // Handle logout
+  const handleLogout = async () => {
+    console.log('🚪 Logging out...');
 
-    // Only clean up if:
-    // 1. Auth is done loading (not loading)
-    // 2. We have OAuth params in URL
-    // 3. Either authenticated OR appUser has loaded (not undefined)
-    if (!isAuthLoading && hasOAuthParams && appUser !== undefined) {
-      console.log('🧹 Cleaning up OAuth params, authenticated:', isAuthenticated);
-      const cleanPath = location.pathname || '/';
-      window.history.replaceState({}, '', cleanPath);
-    }
-  }, [isAuthLoading, isAuthenticated, appUser, location.search, location.pathname]);
+    // Sign out from Google
+    await googleAuthService.signOut();
+
+    // Clear auth state
+    setAuthUserId(null);
+    setGoogleProfile(null);
+
+    // Clear session and socket
+    if (currentSession && socket) socket.emit('end-session');
+    if (socket) socket.disconnect();
+    setUser(null);
+    setCurrentSession(null);
+    setHasJoined(false);
+    setSocket(io(config.SERVER_URL));
+  };
 
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
@@ -237,15 +273,6 @@ function AppContentConvexInner() {
     }
   }, [user, appUser, socket, isConnected, hasJoined]);
 
-  const handleLogout = () => {
-    if (currentSession && socket) socket.emit('end-session');
-    if (socket) socket.disconnect();
-    setUser(null);
-    setCurrentSession(null);
-    setHasJoined(false);
-    setSocket(io(config.SERVER_URL));
-  };
-
   const handleProfileComplete = (profileData) => {
     if (socket && isConnected) socket.emit('join', profileData);
   };
@@ -259,7 +286,7 @@ function AppContentConvexInner() {
     );
   }
 
-  // Waiting for Convex auth session to load
+  // Waiting for auth to initialize
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -270,8 +297,8 @@ function AppContentConvexInner() {
   }
 
   // Not authenticated → show sign-in screen
-  if (!isAuthenticated) {
-    return <AuthScreen />;
+  if (!authUserId) {
+    return <AuthScreen onAuthComplete={handleAuthComplete} />;
   }
 
   // Authenticated but appUser profile not loaded yet
@@ -285,7 +312,7 @@ function AppContentConvexInner() {
 
   // Authenticated but no BodyDouble profile yet → collect username/preferences
   if (appUser === null) {
-    return <ProfileSetupConvex onComplete={handleProfileComplete} />;
+    return <ProfileSetupConvex onComplete={handleProfileComplete} googleProfile={googleProfile} />;
   }
 
   // Waiting for socket connection

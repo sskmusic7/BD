@@ -4,6 +4,7 @@ import { useMutation } from 'convex/react';
 import { api } from '../convexApi';
 import { Mail, Lock, User } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
+import { googleAuthService } from '../services/googleAuthService';
 
 const AuthScreen = ({ onAuthComplete }) => {
   const { currentBackground } = useBackground();
@@ -14,6 +15,7 @@ const AuthScreen = ({ onAuthComplete }) => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Test mutation to check environment variables
   const testAuthConfig = useMutation(api.testAuthConfig.test);
@@ -54,28 +56,35 @@ const AuthScreen = ({ onAuthComplete }) => {
 
   const handleGoogleAuth = async () => {
     setError('');
-    setLoading(true);
+    setGoogleLoading(true);
     try {
-      console.log('Starting Google OAuth...');
-      const result = await signIn('google');
-      console.log('signIn result:', result);
+      console.log('🔐 Starting client-side Google OAuth...');
 
-      if (result.redirect) {
-        console.log('Redirecting to Google OAuth...');
-        window.location.href = result.redirect.toString();
-      } else if (result.signingIn) {
-        console.log('Already signing in, calling onAuthComplete');
-        onAuthComplete?.();
-        setLoading(false);
-      } else {
-        console.warn('Unexpected signIn result:', result);
-        setError('Unexpected response from Google sign-in');
-        setLoading(false);
+      // Initialize Google Identity Services
+      const initialized = await googleAuthService.initialize();
+      if (!initialized) {
+        throw new Error('Failed to initialize Google OAuth. Please check your connection.');
       }
+
+      // Sign in with Google
+      const userProfile = await googleAuthService.signIn();
+
+      console.log('✅ Google sign-in successful:', userProfile);
+
+      // Call onAuthComplete with Google user data
+      onAuthComplete?.({
+        authUserId: googleAuthService.getAuthUserId(),
+        authProvider: 'google',
+        email: userProfile.email,
+        name: userProfile.name,
+        avatarUrl: userProfile.picture,
+      });
+
+      setGoogleLoading(false);
     } catch (err) {
-      console.error('Google OAuth error:', err);
+      console.error('❌ Google OAuth error:', err);
       setError(err.message || 'Google sign-in failed');
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -110,7 +119,7 @@ const AuthScreen = ({ onAuthComplete }) => {
           <button
             type="button"
             onClick={handleGoogleAuth}
-            disabled={loading}
+            disabled={googleLoading}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -131,15 +140,7 @@ const AuthScreen = ({ onAuthComplete }) => {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
-          </button>
-
-          {/* Debug test button */}
-          <button
-            onClick={handleTestAuth}
-            className="w-full mt-2 bg-gray-100 text-gray-600 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-          >
-            🧪 Test Auth Config
+            {googleLoading ? 'Connecting...' : 'Continue with Google'}
           </button>
 
           <div className="relative">

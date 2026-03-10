@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../convexApi';
-import { User, Brain, Target, Clock } from 'lucide-react';
+import { User, Brain, Target, Clock, Mail } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
 
-const ProfileSetupConvex = ({ onComplete }) => {
+const ProfileSetupConvex = ({ onComplete, googleProfile }) => {
   const { currentBackground } = useBackground();
   const ensureUser = useMutation(api.users.ensureUser);
-  const authProvider = useQuery(api.users.getAuthProvider) ?? 'password';
   const [profile, setProfile] = useState({
     username: '',
     displayName: '',
+    email: '',
     focusStyle: 'silent',
     workType: 'study',
     sessionLength: '25',
@@ -18,6 +18,18 @@ const ProfileSetupConvex = ({ onComplete }) => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Pre-fill form with Google profile data
+  useEffect(() => {
+    if (googleProfile) {
+      console.log('📝 Pre-filling profile with Google data:', googleProfile);
+      setProfile(prev => ({
+        ...prev,
+        displayName: googleProfile.name || prev.displayName,
+        email: googleProfile.email || prev.email,
+      }));
+    }
+  }, [googleProfile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,11 +45,13 @@ const ProfileSetupConvex = ({ onComplete }) => {
       await ensureUser({
         username,
         displayName,
+        email: profile.email || undefined,
         focusStyle: profile.focusStyle,
         workType: profile.workType,
         sessionLength: profile.sessionLength,
         adhdType: profile.adhdType,
-        authProvider,
+        authProvider: 'google',
+        avatarUrl: googleProfile?.picture,
       });
       onComplete({
         name: displayName,
@@ -129,6 +143,19 @@ const ProfileSetupConvex = ({ onComplete }) => {
               placeholder="What should we call you?"
             />
           </div>
+
+          {/* Email field (read-only for Google users) */}
+          {googleProfile && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Mail className="inline w-4 h-4 mr-1" />
+                Email (from Google)
+              </label>
+              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                {googleProfile.email}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
