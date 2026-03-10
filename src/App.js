@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
-import { useQuery, useMutation, useConvexAuth } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from './convexApi';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';

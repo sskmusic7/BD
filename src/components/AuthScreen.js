@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation } from 'convex/react';
 import { api } from '../convexApi';
 import { Mail, Lock, User } from 'lucide-react';
@@ -8,7 +7,6 @@ import { googleAuthService } from '../services/googleAuthService';
 
 const AuthScreen = ({ onAuthComplete }) => {
   const { currentBackground } = useBackground();
-  const { signIn } = useAuthActions();
   const [mode, setMode] = useState('signIn'); // 'signIn' | 'signUp'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,9 +14,6 @@ const AuthScreen = ({ onAuthComplete }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-
-  // Test mutation to check environment variables
-  const testAuthConfig = useMutation(api.testAuthConfig.test);
 
   const handleTestAuth = async () => {
     try {
