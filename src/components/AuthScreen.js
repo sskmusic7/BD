@@ -15,18 +15,6 @@ const AuthScreen = ({ onAuthComplete }) => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleTestAuth = async () => {
-    try {
-      console.log('🧪 Testing auth configuration...');
-      const result = await testAuthConfig();
-      console.log('🧪 Auth config test result:', result);
-      alert(`Auth Config Test:\n\nClient ID: ${result.clientId}\nClient Secret: ${result.clientSecret}\nSite URL: ${result.siteUrl}`);
-    } catch (err) {
-      console.error('🧪 Auth config test error:', err);
-      alert(`Auth Config Test Error:\n\n${err.message}`);
-    }
-  };
-
   const handlePasswordAuth = async (e) => {
     e.preventDefault();
     setError('');
