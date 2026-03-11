@@ -214,6 +214,8 @@ function AppContentConvexInner() {
 
       // Attempt silent sign-in for returning users
       window.google.accounts.id.prompt((notification) => {
+        console.log('🔐 Google One Tap notification:', notification);
+
         if (notification.isNotDisplayed()) {
           console.log('ℹ️ Google One Tap not displayed');
           setIsAuthLoading(false);
@@ -222,7 +224,19 @@ function AppContentConvexInner() {
           console.log('ℹ️ User skipped Google One Tap');
           setIsAuthLoading(false);
         }
+        if (notification.isDisplayed()) {
+          console.log('✅ Google One Tap displayed');
+          // Set loading to false after a delay in case user dismisses
+          setTimeout(() => setIsAuthLoading(false), 2000);
+        }
+        if (notification.getDismissedReason()) {
+          console.log('ℹ️ Google One Tap dismissed:', notification.getDismissedReason());
+          setIsAuthLoading(false);
+        }
       });
+
+      // Fallback: ensure loading is cleared after 3 seconds regardless
+      setTimeout(() => setIsAuthLoading(false), 3000);
     };
 
     // Wait for Google script to load
