@@ -181,66 +181,64 @@ class GoogleAuthService {
       await this.initialize();
     }
 
+    // If already have token, just resolve
+    if (this.accessToken && this.userProfile) {
+      console.log('✅ Already signed in, returning cached profile');
+      return this.userProfile;
+    }
+
     return new Promise((resolve, reject) => {
       console.log('📋 Setting up sign-in callback...');
-
-      // Store the resolve/reject functions to be called by the callback
-      this._signInResolve = resolve;
-      this._signInReject = reject;
-
-      // Update the token client callback
-      this.tokenClient.callback = async (response) => {
-        console.log('🔄 Sign-in callback triggered:', response);
-
-        if (response.error) {
-          console.error('❌ Sign-in error:', response.error);
-          console.error('Full error response:', {
-            error: response.error,
-            error_description: response.error_description,
-            error_uri: response.error_uri,
-          });
-
-          if (this._signInReject) {
-            this._signInReject(new Error(response.error || 'OAuth failed'));
-          }
-          return;
-        }
-
-        console.log('✅ Sign-in successful! Access token received');
-        this.accessToken = response.access_token;
-
-        try {
-          await this.fetchUserProfile();
-          this.saveSession(); // Save to localStorage
-
-          console.log('✅ User profile fetched and saved');
-          if (this._signInResolve) {
-            this._signInResolve(this.userProfile);
-          }
-        } catch (error) {
-          console.error('❌ Error fetching user profile:', error);
-          if (this._signInReject) {
-            this._signInReject(error);
-          }
-        }
-      };
-
-      // If already have token, just resolve
-      if (this.accessToken && this.userProfile) {
-        console.log('✅ Already signed in, returning cached profile');
-        resolve(this.userProfile);
-        return;
-      }
-
-      // Request access token with consent popup
-      console.log('📱 Requesting access token with popup...');
       console.log('📍 Origin:', window.location.origin);
       console.log('🔑 Client ID:', this.clientId.substring(0, 20) + '...');
 
+      // Set up timeout to catch if callback never fires
+      const timeout = setTimeout(() => {
+        console.error('❌ Sign-in timeout - callback never fired');
+        reject(new Error('Sign-in timeout - popup may have been blocked or closed'));
+      }, 60000); // 60 second timeout
+
+      // Create a NEW token client for this sign-in attempt
       try {
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: this.clientId,
+          scope: 'openid email profile',
+          callback: (response) => {
+            clearTimeout(timeout);
+            console.log('🔄 Sign-in callback triggered!', response);
+
+            if (response.error) {
+              console.error('❌ Sign-in error:', response.error);
+              console.error('Full error response:', {
+                error: response.error,
+                error_description: response.error_description,
+                error_uri: response.error_uri,
+              });
+              reject(new Error(response.error || 'OAuth failed'));
+              return;
+            }
+
+            console.log('✅ Sign-in successful! Access token received');
+            this.accessToken = response.access_token;
+
+            this.fetchUserProfile()
+              .then((profile) => {
+                this.saveSession();
+                console.log('✅ User profile fetched and saved');
+                resolve(profile);
+              })
+              .catch((error) => {
+                console.error('❌ Error fetching user profile:', error);
+                reject(error);
+              });
+          },
+        });
+
+        console.log('📱 Requesting access token with popup...');
+        tokenClient.requestAccessToken({ prompt: 'consent' });
       } catch (error) {
-        console.error('❌ Error requesting access token:', error);
+        clearTimeout(timeout);
+        console.error('❌ Error initializing token client:', error);
         reject(error);
       }
     });
