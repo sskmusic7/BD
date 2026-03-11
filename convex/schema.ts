@@ -4,12 +4,23 @@ import { authTables } from "@convex-dev/auth/server";
 
 /**
  * Convex schema for BodyDouble.
+ * - googleUsers: Simple Google auth tracking (Google One Tap flow)
  * - authTables: users, authSessions, authAccounts, etc. (from @convex-dev/auth)
  * - appUsers: BodyDouble app profiles linked to auth users
  * - friendships: between appUsers
  * - inviteLinks: shareable friend invites
  */
 export default defineSchema({
+  googleUsers: defineTable({
+    googleId: v.string(), // Google sub from JWT
+    email: v.string(),
+    name: v.string(),
+    picture: v.optional(v.string()),
+    lastSeen: v.number(),
+  })
+    .index("by_googleId", ["googleId"])
+    .index("by_email", ["email"]),
+
   ...authTables,
 
   appUsers: defineTable({

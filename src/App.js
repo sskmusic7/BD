@@ -12,9 +12,7 @@ import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
-import AuthScreen from './components/AuthScreen';
 import InviteLanding from './components/InviteLanding';
-import { googleAuthService } from './services/googleAuthService';
 
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
@@ -155,98 +153,103 @@ function AppContentConvexInner() {
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Custom auth state for Google OAuth
-  const [authUserId, setAuthUserId] = useState(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // CLEAN AUTH: Google ID stored in React state, persisted via Convex
+  const [googleId, setGoogleId] = useState(null);
   const [googleProfile, setGoogleProfile] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Convex mutations for Google auth
+  const upsertGoogleUser = useMutation(api.googleAuth.upsertGoogleUser);
 
   // Keep Convex queries
-  const appUser = useQuery(api.users.getCurrentUser, authUserId ? { authUserId } : 'skip');
+  const appUser = useQuery(api.googleAuth.getAppUser, googleId ? { googleId } : 'skip');
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
 
-  // Initialize Google auth on mount
+  // Initialize Google One Tap on mount
   useEffect(() => {
-    const initAuth = async () => {
-      console.log('🔐 Initializing auth...');
-
-      try {
-        await googleAuthService.initialize();
-
-        // Check if user is already signed in
-        if (googleAuthService.isUserSignedIn()) {
-          console.log('✅ User already signed in with Google');
-          const authUserId = googleAuthService.getAuthUserId();
-          setAuthUserId(authUserId);
-
-          const profile = {
-            email: googleAuthService.userProfile.email,
-            name: googleAuthService.userProfile.name,
-            picture: googleAuthService.userProfile.picture,
-          };
-          setGoogleProfile(profile);
-
-          // Also save to localStorage for backup
-          localStorage.setItem('auth_user_id', authUserId);
-          localStorage.setItem('google_profile', JSON.stringify(profile));
-        } else {
-          console.log('ℹ️ No active Google session found');
-
-          // Check localStorage for backup
-          const savedAuthUserId = localStorage.getItem('auth_user_id');
-          const savedGoogleProfile = localStorage.getItem('google_profile');
-
-          if (savedAuthUserId && savedGoogleProfile) {
-            console.log('✅ Restored auth state from localStorage');
-            setAuthUserId(savedAuthUserId);
-            setGoogleProfile(JSON.parse(savedGoogleProfile));
-          }
-        }
-
+    const initGoogle = () => {
+      if (!window.google) {
+        console.error('❌ Google Identity Services not loaded');
         setIsAuthLoading(false);
-      } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        setIsAuthLoading(false);
+        return;
       }
+
+      window.google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          // Decode the JWT credential from Google
+          const payload = JSON.parse(
+            atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+          );
+
+          console.log('✅ Google sign-in successful:', payload);
+
+          // Upsert to Convex - this becomes your session
+          await upsertGoogleUser({
+            googleId: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+          });
+
+          setGoogleId(payload.sub);
+          setGoogleProfile({
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+          });
+        },
+        auto_select: true, // Silently sign in returning users
+      });
+
+      // Render the sign-in button
+      const buttonContainer = document.getElementById('google-signin-btn');
+      if (buttonContainer) {
+        window.google.accounts.id.renderButton(buttonContainer, {
+          theme: 'outline',
+          size: 'large',
+        });
+      }
+
+      // Attempt silent sign-in for returning users
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed()) {
+          console.log('ℹ️ Google One Tap not displayed');
+          setIsAuthLoading(false);
+        }
+        if (notification.isSkippedMoment()) {
+          console.log('ℹ️ User skipped Google One Tap');
+          setIsAuthLoading(false);
+        }
+      });
     };
 
-    initAuth();
-  }, []);
+    // Wait for Google script to load
+    if (window.google) {
+      initGoogle();
+    } else {
+      window.onGoogleLibraryLoad = initGoogle;
+    }
 
-  // Handle auth completion from AuthScreen
-  const handleAuthComplete = (authData) => {
-    console.log('✅ Auth completed:', authData);
-    const authUserId = authData.authUserId;
-    const googleProfile = {
-      email: authData.email,
-      name: authData.name,
-      picture: authData.avatarUrl,
+    // Cleanup
+    return () => {
+      window.onGoogleLibraryLoad = null;
     };
-
-    setAuthUserId(authUserId);
-    setGoogleProfile(googleProfile);
-
-    // Persist to localStorage
-    localStorage.setItem('auth_user_id', authUserId);
-    localStorage.setItem('google_profile', JSON.stringify(googleProfile));
-    console.log('✅ Auth state saved to localStorage');
-  };
+  }, [upsertGoogleUser]);
 
   // Handle logout
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
 
-    // Sign out from Google
-    await googleAuthService.signOut();
+    // Disable Google auto-select
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect();
+    }
 
-    // Clear auth state
-    setAuthUserId(null);
+    // Clear auth state (no localStorage to clear!)
+    setGoogleId(null);
     setGoogleProfile(null);
-
-    // Clear localStorage
-    localStorage.removeItem('auth_user_id');
-    localStorage.removeItem('google_profile');
-    console.log('✅ Auth state cleared from localStorage');
 
     // Clear session and socket
     if (currentSession && socket) socket.emit('end-session');
@@ -327,8 +330,16 @@ function AppContentConvexInner() {
   }
 
   // Not authenticated → show sign-in screen
-  if (!authUserId) {
-    return <AuthScreen onAuthComplete={handleAuthComplete} />;
+  if (!googleId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <h1 className="text-3xl font-bold mb-2 text-gray-800">BodyDouble</h1>
+          <p className="text-gray-600 mb-6">Sign in to find your focus partner</p>
+          <div id="google-signin-btn" className="flex justify-center"></div>
+        </div>
+      </div>
+    );
   }
 
   // Authenticated but appUser profile not loaded yet
