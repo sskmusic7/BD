@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
 import { useQuery, useMutation } from 'convex/react';
@@ -160,6 +160,8 @@ function AppContentConvexInner() {
 
   // Convex mutations for Google auth
   const upsertGoogleUser = useMutation(api.googleAuth.upsertGoogleUser);
+  const upsertGoogleUserRef = useRef(upsertGoogleUser);
+  upsertGoogleUserRef.current = upsertGoogleUser;
 
   // Keep Convex queries
   const appUser = useQuery(api.googleAuth.getAppUser, googleId ? { googleId } : 'skip');
@@ -169,6 +171,8 @@ function AppContentConvexInner() {
   // Initialize Google One Tap on mount
   useEffect(() => {
     const initGoogle = () => {
+      console.log('🔐 Initializing Google One Tap...');
+
       if (!window.google) {
         console.error('❌ Google Identity Services not loaded');
         setIsAuthLoading(false);
@@ -186,7 +190,7 @@ function AppContentConvexInner() {
           console.log('✅ Google sign-in successful:', payload);
 
           // Upsert to Convex - this becomes your session
-          await upsertGoogleUser({
+          await upsertGoogleUserRef.current({
             googleId: payload.sub,
             email: payload.email,
             name: payload.name,
@@ -250,7 +254,7 @@ function AppContentConvexInner() {
     return () => {
       window.onGoogleLibraryLoad = null;
     };
-  }, [upsertGoogleUser]);
+  }, []); // Empty dependency array - run once on mount
 
   // Handle logout
   const handleLogout = async () => {
