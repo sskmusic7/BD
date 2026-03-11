@@ -156,7 +156,6 @@ function AppContentConvexInner() {
   // CLEAN AUTH: Google ID stored in React state, persisted via Convex
   const [googleId, setGoogleId] = useState(null);
   const [googleProfile, setGoogleProfile] = useState(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Convex mutations for Google auth
   const upsertGoogleUser = useMutation(api.googleAuth.upsertGoogleUser);
@@ -175,7 +174,6 @@ function AppContentConvexInner() {
 
       if (!window.google) {
         console.error('❌ Google Identity Services not loaded');
-        setIsAuthLoading(false);
         return;
       }
 
@@ -219,28 +217,7 @@ function AppContentConvexInner() {
       // Attempt silent sign-in for returning users
       window.google.accounts.id.prompt((notification) => {
         console.log('🔐 Google One Tap notification:', notification);
-
-        if (notification.isNotDisplayed()) {
-          console.log('ℹ️ Google One Tap not displayed');
-          setIsAuthLoading(false);
-        }
-        if (notification.isSkippedMoment()) {
-          console.log('ℹ️ User skipped Google One Tap');
-          setIsAuthLoading(false);
-        }
-        if (notification.isDisplayed()) {
-          console.log('✅ Google One Tap displayed');
-          // Set loading to false after a delay in case user dismisses
-          setTimeout(() => setIsAuthLoading(false), 2000);
-        }
-        if (notification.getDismissedReason()) {
-          console.log('ℹ️ Google One Tap dismissed:', notification.getDismissedReason());
-          setIsAuthLoading(false);
-        }
       });
-
-      // Fallback: ensure loading is cleared after 3 seconds regardless
-      setTimeout(() => setIsAuthLoading(false), 3000);
     };
 
     // Wait for Google script to load
@@ -337,17 +314,7 @@ function AppContentConvexInner() {
     );
   }
 
-  // Waiting for auth to initialize
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-        <p className="mt-4 text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
-  // Not authenticated → show sign-in screen
+  // Not authenticated → show sign-in screen (NO loading screen, show immediately)
   if (!googleId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
