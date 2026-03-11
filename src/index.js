@@ -15,7 +15,7 @@ root.render(
   <React.StrictMode>
     {convex ? (
       <ConvexAuthProvider client={convex}>
-        <App useConvexAuth />
+        <App />
       </ConvexAuthProvider>
     ) : (
       <App />
