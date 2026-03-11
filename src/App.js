@@ -7,7 +7,6 @@ import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
 import SessionPage from './components/SessionPage';
-import ProfileSetup from './components/ProfileSetup';
 import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
