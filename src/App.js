@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import io from 'socket.io-client';
 import { useQuery, useMutation } from 'convex/react';
@@ -7,11 +7,142 @@ import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
 import SessionPage from './components/SessionPage';
+import ProfileSetup from './components/ProfileSetup';
 import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
+import AuthScreen from './components/AuthScreen';
 import InviteLanding from './components/InviteLanding';
+import { googleAuthService } from './services/googleAuthService';
+
+function AppContentLegacy() {
+  const { currentBackground } = useBackground();
+  const [socket, setSocket] = useState(null);
+  const [user, setUser] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  useEffect(() => {
+    // Initialize socket connection
+    const newSocket = io(config.SERVER_URL);
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  // Separate effect for socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnect = () => {
+      setIsConnected(true);
+      console.log('Connected to server');
+    };
+
+    const handleDisconnect = () => {
+      setIsConnected(false);
+      console.log('Disconnected from server');
+    };
+
+    const handleJoined = (data) => {
+      setUser(data.user);
+    };
+
+    const handlePartnerFound = (data) => {
+      setCurrentSession({
+        id: data.sessionId,
+        partner: data.partner,
+        startTime: new Date()
+      });
+    };
+
+    const handleSessionEnded = () => {
+      setCurrentSession(null);
+    };
+
+    const handlePartnerDisconnected = () => {
+      setCurrentSession(null);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('joined', handleJoined);
+    socket.on('partner-found', handlePartnerFound);
+    socket.on('session-ended', handleSessionEnded);
+    socket.on('partner-disconnected', handlePartnerDisconnected);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('joined', handleJoined);
+      socket.off('partner-found', handlePartnerFound);
+      socket.off('session-ended', handleSessionEnded);
+      socket.off('partner-disconnected', handlePartnerDisconnected);
+    };
+  }, [socket]);
+
+  const handleProfileComplete = (profileData) => {
+    if (socket) {
+      socket.emit('join', profileData);
+    }
+  };
+
+  const handleLogout = () => {
+    // Clean up current session
+    if (currentSession && socket) {
+      socket.emit('end-session');
+    }
+    
+    // Disconnect current socket
+    if (socket) {
+      socket.disconnect();
+    }
+    
+    // Reset all state
+    setUser(null);
+    setCurrentSession(null);
+    setSocket(null);
+    
+    // Create fresh socket connection
+    const newSocket = io(config.SERVER_URL);
+    setSocket(newSocket);
+  };
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <ProfileSetup onComplete={handleProfileComplete} />;
+  }
+
+  return (
+    <Router>
+      <div className="min-h-screen" style={{
+        background: `url(${currentBackground}) no-repeat center center`,
+        backgroundSize: 'cover'
+      }}>
+        <Navbar user={user} onLogout={handleLogout} />
+        <BackgroundSelector />
+        <Routes>
+          <Route path="/" element={<HomePage socket={socket} user={user} />} />
+          <Route path="/friends" element={<FriendsPage socket={socket} user={user} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
 
 function AppContentConvexInner() {
   const location = useLocation();
@@ -24,98 +155,98 @@ function AppContentConvexInner() {
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
 
-  // CLEAN AUTH: Google ID stored in React state, persisted via Convex
-  const [googleId, setGoogleId] = useState(null);
+  // Custom auth state for Google OAuth
+  const [authUserId, setAuthUserId] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [googleProfile, setGoogleProfile] = useState(null);
 
-  // Convex mutations for Google auth
-  const upsertGoogleUser = useMutation(api.googleAuth.upsertGoogleUser);
-  const upsertGoogleUserRef = useRef(upsertGoogleUser);
-  upsertGoogleUserRef.current = upsertGoogleUser;
-
   // Keep Convex queries
-  const appUser = useQuery(api.googleAuth.getAppUser, googleId ? { googleId } : 'skip');
+  const appUser = useQuery(api.users.getCurrentUser, authUserId ? { authUserId } : 'skip');
   const convexFriends = useQuery(api.friends.listFriends);
   const createInviteLink = useMutation(api.invites.createLink);
 
-  // Initialize Google One Tap on mount
+  // Initialize Google auth on mount
   useEffect(() => {
-    const initGoogle = () => {
-      console.log('🔐 Initializing Google One Tap...');
+    const initAuth = async () => {
+      console.log('🔐 Initializing auth...');
 
-      if (!window.google) {
-        console.error('❌ Google Identity Services not loaded');
-        return;
+      try {
+        await googleAuthService.initialize();
+
+        // Check if user is already signed in
+        if (googleAuthService.isUserSignedIn()) {
+          console.log('✅ User already signed in with Google');
+          const authUserId = googleAuthService.getAuthUserId();
+          setAuthUserId(authUserId);
+
+          const profile = {
+            email: googleAuthService.userProfile.email,
+            name: googleAuthService.userProfile.name,
+            picture: googleAuthService.userProfile.picture,
+          };
+          setGoogleProfile(profile);
+
+          // Also save to localStorage for backup
+          localStorage.setItem('auth_user_id', authUserId);
+          localStorage.setItem('google_profile', JSON.stringify(profile));
+        } else {
+          console.log('ℹ️ No active Google session found');
+
+          // Check localStorage for backup
+          const savedAuthUserId = localStorage.getItem('auth_user_id');
+          const savedGoogleProfile = localStorage.getItem('google_profile');
+
+          if (savedAuthUserId && savedGoogleProfile) {
+            console.log('✅ Restored auth state from localStorage');
+            setAuthUserId(savedAuthUserId);
+            setGoogleProfile(JSON.parse(savedGoogleProfile));
+          }
+        }
+
+        setIsAuthLoading(false);
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
+        setIsAuthLoading(false);
       }
-
-      window.google.accounts.id.initialize({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-        callback: async (response) => {
-          // Decode the JWT credential from Google
-          const payload = JSON.parse(
-            atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-          );
-
-          console.log('✅ Google sign-in successful:', payload);
-
-          // Upsert to Convex - this becomes your session
-          await upsertGoogleUserRef.current({
-            googleId: payload.sub,
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-          });
-
-          setGoogleId(payload.sub);
-          setGoogleProfile({
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-          });
-        },
-        auto_select: true, // Silently sign in returning users
-      });
-
-      // Render the sign-in button
-      const buttonContainer = document.getElementById('google-signin-btn');
-      if (buttonContainer) {
-        window.google.accounts.id.renderButton(buttonContainer, {
-          theme: 'outline',
-          size: 'large',
-        });
-      }
-
-      // Attempt silent sign-in for returning users
-      window.google.accounts.id.prompt((notification) => {
-        console.log('🔐 Google One Tap notification:', notification);
-      });
     };
 
-    // Wait for Google script to load
-    if (window.google) {
-      initGoogle();
-    } else {
-      window.onGoogleLibraryLoad = initGoogle;
-    }
+    initAuth();
+  }, []);
 
-    // Cleanup
-    return () => {
-      window.onGoogleLibraryLoad = null;
+  // Handle auth completion from AuthScreen
+  const handleAuthComplete = (authData) => {
+    console.log('✅ Auth completed:', authData);
+    const authUserId = authData.authUserId;
+    const googleProfile = {
+      email: authData.email,
+      name: authData.name,
+      picture: authData.avatarUrl,
     };
-  }, []); // Empty dependency array - run once on mount
+
+    setAuthUserId(authUserId);
+    setGoogleProfile(googleProfile);
+
+    // Persist to localStorage
+    localStorage.setItem('auth_user_id', authUserId);
+    localStorage.setItem('google_profile', JSON.stringify(googleProfile));
+    console.log('✅ Auth state saved to localStorage');
+  };
 
   // Handle logout
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
 
-    // Disable Google auto-select
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.disableAutoSelect();
-    }
+    // Sign out from Google
+    await googleAuthService.signOut();
 
-    // Clear auth state (no localStorage to clear!)
-    setGoogleId(null);
+    // Clear auth state
+    setAuthUserId(null);
     setGoogleProfile(null);
+
+    // Clear localStorage
+    localStorage.removeItem('auth_user_id');
+    localStorage.removeItem('google_profile');
+    console.log('✅ Auth state cleared from localStorage');
 
     // Clear session and socket
     if (currentSession && socket) socket.emit('end-session');
@@ -185,17 +316,19 @@ function AppContentConvexInner() {
     );
   }
 
-  // Not authenticated → show sign-in screen (NO loading screen, show immediately)
-  if (!googleId) {
+  // Waiting for auth to initialize
+  if (isAuthLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <h1 className="text-3xl font-bold mb-2 text-gray-800">BodyDouble</h1>
-          <p className="text-gray-600 mb-6">Sign in to find your focus partner</p>
-          <div id="google-signin-btn" className="flex justify-center"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+        <p className="mt-4 text-gray-600">Loading...</p>
       </div>
     );
+  }
+
+  // Not authenticated → show sign-in screen
+  if (!authUserId) {
+    return <AuthScreen onAuthComplete={handleAuthComplete} />;
   }
 
   // Authenticated but appUser profile not loaded yet
@@ -252,12 +385,18 @@ function AppContentConvexInner() {
   );
 }
 
-function App() {
+function AppContentConvex() {
+  return (
+    <Router>
+      <AppContentConvexInner />
+    </Router>
+  );
+}
+
+function App({ useConvexAuth }) {
   return (
     <BackgroundProvider>
-      <Router>
-        <AppContentConvexInner />
-      </Router>
+      {useConvexAuth ? <AppContentConvex /> : <AppContentLegacy />}
     </BackgroundProvider>
   );
 }
