@@ -133,39 +133,43 @@ class GoogleAuthService {
       await this.initialize();
     }
 
-    // Check if user is already signed in
-    try {
-      const response = await window.google.accounts.id.prompt(async (response) => {
-        console.log('🔄 Google Sign-In prompt callback:', response);
+    // If already signed in, return the profile
+    if (this.userProfile) {
+      console.log('✅ Already signed in, returning cached profile');
+      return this.userProfile;
+    }
 
-        if (response.error) {
-          console.error('❌ Sign-in error:', response.error);
-          throw new Error(response.error);
+    // Sign in with Google using prompt (One Tap)
+    return new Promise((resolve, reject) => {
+      window.google.accounts.id.prompt((notification) => {
+        console.log('🔄 Google Sign-In prompt notification:', notification);
+
+        if (notification.notDisplayed() || notification.notSkipped()) {
+          console.warn('⚠️ Google One Tap not displayed or skipped');
+          reject(new Error('Google One Tap was not displayed'));
+          return;
         }
 
-        // Get the credential
-        const credential = response.credential;
-        const payload = this.parseJwt(credential);
-
-        console.log('✅ Sign-in successful!');
-        console.log('👤 User:', payload);
-
-        this.userProfile = {
-          email: payload.email,
-          name: payload.name,
-          sub: payload.sub,
-          picture: payload.picture,
-        };
-
-        this.saveSession();
-        return this.userProfile;
+        if (notification.getDismissedReason()) {
+          const reason = notification.getDismissedReason();
+          console.warn('⚠️ Google One Tap dismissed:', reason);
+          if (reason === 'credential_returned') {
+            // User signed in successfully
+            resolve(this.userProfile);
+          } else {
+            reject(new Error('Sign-in was dismissed: ' + reason));
+          }
+          return;
+        }
       });
 
-      return response;
-    } catch (error) {
-      console.error('❌ Error during sign-in prompt:', error);
-      throw error;
-    }
+      // Also set up a timeout in case prompt doesn't work
+      setTimeout(() => {
+        if (!this.userProfile) {
+          reject(new Error('Google sign-in timed out'));
+        }
+      }, 30000);
+    });
   }
 
   /**
