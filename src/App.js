@@ -159,30 +159,29 @@ function AppContentConvexInner() {
   const [authUserId, setAuthUserId] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [googleProfile, setGoogleProfile] = useState(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
-  // Keep Convex queries
-  const appUser = useQuery(api.users.getCurrentUser, authUserId ? { authUserId } : 'skip');
-  const convexFriends = useQuery(api.friends.listFriends);
-  const createInviteLink = useMutation(api.invites.createLink);
+  // DEMO MODE: Skip Convex queries, use demo user
+  const appUser = null; // Force null to skip profile setup
+  const convexFriends = [];
+  const createInviteLink = null;
 
   // Initialize Google auth on mount
-  // DEMO MODE: Auth disabled - skip directly to profile setup
+  // DEMO MODE: Auth disabled - skip directly to app
   useEffect(() => {
     const initAuth = async () => {
       console.log('🔐 DEMO MODE: Auth bypassed');
+      setIsDemoMode(true);
 
-      // Set a demo auth user ID
-      const demoAuthUserId = 'demo_user_' + Date.now();
-      setAuthUserId(demoAuthUserId);
-
-      // Set a demo profile
-      const demoProfile = {
-        email: 'demo@bodydouble.app',
+      // Create a demo user for the socket
+      const demoUser = {
         name: 'Demo User',
-        picture: '',
+        focusStyle: 'Body Doubling',
+        workType: 'Creative Work',
+        sessionLength: '25 minutes',
+        adhdType: 'Inattentive'
       };
-      setGoogleProfile(demoProfile);
-
+      setUser(demoUser);
       setIsAuthLoading(false);
     };
 
@@ -289,6 +288,26 @@ function AppContentConvexInner() {
       <Routes>
         <Route path="/invite/:token" element={<InviteLanding />} />
       </Routes>
+    );
+  }
+
+  // DEMO MODE: Skip all auth checks and go directly to app
+  if (isDemoMode) {
+    // Skip socket connection requirement for demo
+    return (
+      <div className="min-h-screen" style={{
+        background: `url(${currentBackground}) no-repeat center center`,
+        backgroundSize: 'cover'
+      }}>
+        <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
+        <BackgroundSelector />
+        <Routes>
+          <Route path="/invite/:token" element={<InviteLanding />} />
+          <Route path="/" element={<HomePage socket={null} user={user} />} />
+          <Route path="/friends" element={<FriendsPage socket={null} user={user} convexFriends={convexFriends} createInviteLink={createInviteLink} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     );
   }
 
