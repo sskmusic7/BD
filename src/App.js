@@ -166,48 +166,24 @@ function AppContentConvexInner() {
   const createInviteLink = useMutation(api.invites.createLink);
 
   // Initialize Google auth on mount
+  // DEMO MODE: Auth disabled - skip directly to profile setup
   useEffect(() => {
     const initAuth = async () => {
-      console.log('🔐 Initializing auth...');
+      console.log('🔐 DEMO MODE: Auth bypassed');
 
-      try {
-        await googleAuthService.initialize();
+      // Set a demo auth user ID
+      const demoAuthUserId = 'demo_user_' + Date.now();
+      setAuthUserId(demoAuthUserId);
 
-        // Check if user is already signed in
-        if (googleAuthService.isUserSignedIn()) {
-          console.log('✅ User already signed in with Google');
-          const authUserId = googleAuthService.getAuthUserId();
-          setAuthUserId(authUserId);
+      // Set a demo profile
+      const demoProfile = {
+        email: 'demo@bodydouble.app',
+        name: 'Demo User',
+        picture: '',
+      };
+      setGoogleProfile(demoProfile);
 
-          const profile = {
-            email: googleAuthService.userProfile.email,
-            name: googleAuthService.userProfile.name,
-            picture: googleAuthService.userProfile.picture,
-          };
-          setGoogleProfile(profile);
-
-          // Also save to localStorage for backup
-          localStorage.setItem('auth_user_id', authUserId);
-          localStorage.setItem('google_profile', JSON.stringify(profile));
-        } else {
-          console.log('ℹ️ No active Google session found');
-
-          // Check localStorage for backup
-          const savedAuthUserId = localStorage.getItem('auth_user_id');
-          const savedGoogleProfile = localStorage.getItem('google_profile');
-
-          if (savedAuthUserId && savedGoogleProfile) {
-            console.log('✅ Restored auth state from localStorage');
-            setAuthUserId(savedAuthUserId);
-            setGoogleProfile(JSON.parse(savedGoogleProfile));
-          }
-        }
-
-        setIsAuthLoading(false);
-      } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        setIsAuthLoading(false);
-      }
+      setIsAuthLoading(false);
     };
 
     initAuth();
