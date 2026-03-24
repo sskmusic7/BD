@@ -144,6 +144,34 @@ function AppContentLegacy() {
   );
 }
 
+// DEMO MODE: Simple app without auth/Convex
+function AppContentDemo() {
+  const { currentBackground } = useBackground();
+  const [user] = useState({
+    name: 'Demo User',
+    focusStyle: 'Body Doubling',
+    workType: 'Creative Work',
+    sessionLength: '25 minutes',
+    adhdType: 'Inattentive'
+  });
+
+  return (
+    <div className="min-h-screen" style={{
+      background: `url(${currentBackground}) no-repeat center center`,
+      backgroundSize: 'cover'
+    }}>
+      <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
+      <BackgroundSelector />
+      <Routes>
+        <Route path="/invite/:token" element={<InviteLanding />} />
+        <Route path="/" element={<HomePage socket={null} user={user} />} />
+        <Route path="/friends" element={<FriendsPage socket={null} user={user} convexFriends={[]} createInviteLink={null} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
+}
+
 function AppContentConvexInner() {
   const location = useLocation();
   const isInvitePage = location.pathname.startsWith('/invite/');
@@ -381,9 +409,10 @@ function AppContentConvexInner() {
 }
 
 function AppContentConvex() {
+  // DEMO MODE: Use demo component instead of Convex auth
   return (
     <Router>
-      <AppContentConvexInner />
+      <AppContentDemo />
     </Router>
   );
 }
