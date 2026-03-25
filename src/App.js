@@ -16,6 +16,40 @@ import BackgroundSelector from './components/BackgroundSelector';
 import InviteLanding from './components/InviteLanding';
 // import { googleAuthService } from './services/googleAuthService';
 
+// Background renderer component that handles both image/gif and video
+const BackgroundRenderer = ({ children }) => {
+  const { backgrounds, currentIndex } = useBackground();
+  const currentBg = backgrounds[currentIndex];
+
+  if (currentBg.type === 'video') {
+    return (
+      <div className="min-h-screen relative">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover -z-10"
+          style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}
+        >
+          <source src={currentBg.path} type="video/mp4" />
+        </video>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen" style={{
+      background: `url(${currentBg.path}) no-repeat center center`,
+      backgroundSize: 'cover',
+      backgroundAttachment: 'fixed'
+    }}>
+      {children}
+    </div>
+  );
+};
+
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
   const [socket, setSocket] = useState(null);
@@ -146,7 +180,6 @@ function AppContentLegacy() {
 
 // DEMO MODE: Simple app without auth/Convex
 function AppContentDemo() {
-  const { currentBackground } = useBackground();
   const [user] = useState({
     name: 'Demo User',
     focusStyle: 'Body Doubling',
@@ -156,10 +189,7 @@ function AppContentDemo() {
   });
 
   return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover'
-    }}>
+    <BackgroundRenderer>
       <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
       <BackgroundSelector />
       <Routes>
@@ -168,7 +198,7 @@ function AppContentDemo() {
         <Route path="/friends" element={<FriendsPage socket={null} user={user} convexFriends={[]} createInviteLink={null} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </div>
+    </BackgroundRenderer>
   );
 }
 

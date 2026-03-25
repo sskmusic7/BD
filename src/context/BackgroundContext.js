@@ -13,6 +13,11 @@ export const useBackground = () => {
 // Available backgrounds
 const BACKGROUNDS = [
   {
+    name: 'Dolly In (Video)',
+    path: '/backgrounds/dolly-in.mp4',
+    type: 'video'
+  },
+  {
     name: 'Water Loop',
     path: '/backgrounds/Make_the_water_clearer_looping.gif',
     type: 'gif'
@@ -93,6 +98,7 @@ export const BackgroundProvider = ({ children }) => {
     backgrounds: BACKGROUNDS,
     currentIndex,
     currentBackground: currentBackground.path,
+    currentBackgroundObject: currentBackground,
     currentBackgroundName: currentBackground.name,
     nextBackground,
     previousBackground,
