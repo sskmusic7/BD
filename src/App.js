@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import { useQuery, useMutation } from 'convex/react';
-import { api } from './convexApi';
+// import { useQuery, useMutation } from 'convex/react';
+// import { api } from './convexApi';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
-import SessionPage from './components/SessionPage';
+// import SessionPage from './components/SessionPage';
 import ProfileSetup from './components/ProfileSetup';
-import ProfileSetupConvex from './components/ProfileSetupConvex';
+// import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
-import AuthScreen from './components/AuthScreen';
+// import AuthScreen from './components/AuthScreen';
 import InviteLanding from './components/InviteLanding';
-import { googleAuthService } from './services/googleAuthService';
+// import { googleAuthService } from './services/googleAuthService';
 
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
@@ -172,241 +172,10 @@ function AppContentDemo() {
   );
 }
 
-function AppContentConvexInner() {
-  const location = useLocation();
-  const isInvitePage = location.pathname.startsWith('/invite/');
-
-  const { currentBackground } = useBackground();
-  const [socket, setSocket] = useState(null);
-  const [user, setUser] = useState(null);
-  const [currentSession, setCurrentSession] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
-
-  // Custom auth state for Google OAuth
-  const [authUserId, setAuthUserId] = useState(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [googleProfile, setGoogleProfile] = useState(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-
-  // DEMO MODE: Skip Convex queries, use demo user
-  const appUser = null; // Force null to skip profile setup
-  const convexFriends = [];
-  const createInviteLink = null;
-
-  // Initialize Google auth on mount
-  // DEMO MODE: Auth disabled - skip directly to app
-  useEffect(() => {
-    const initAuth = async () => {
-      console.log('🔐 DEMO MODE: Auth bypassed');
-      setIsDemoMode(true);
-
-      // Create a demo user for the socket
-      const demoUser = {
-        name: 'Demo User',
-        focusStyle: 'Body Doubling',
-        workType: 'Creative Work',
-        sessionLength: '25 minutes',
-        adhdType: 'Inattentive'
-      };
-      setUser(demoUser);
-      setIsAuthLoading(false);
-    };
-
-    initAuth();
-  }, []);
-
-  // Handle auth completion from AuthScreen
-  const handleAuthComplete = (authData) => {
-    console.log('✅ Auth completed:', authData);
-    const authUserId = authData.authUserId;
-    const googleProfile = {
-      email: authData.email,
-      name: authData.name,
-      picture: authData.avatarUrl,
-    };
-
-    setAuthUserId(authUserId);
-    setGoogleProfile(googleProfile);
-
-    // Persist to localStorage
-    localStorage.setItem('auth_user_id', authUserId);
-    localStorage.setItem('google_profile', JSON.stringify(googleProfile));
-    console.log('✅ Auth state saved to localStorage');
-  };
-
-  // Handle logout
-  const handleLogout = async () => {
-    console.log('🚪 Logging out...');
-
-    // Sign out from Google
-    await googleAuthService.signOut();
-
-    // Clear auth state
-    setAuthUserId(null);
-    setGoogleProfile(null);
-
-    // Clear localStorage
-    localStorage.removeItem('auth_user_id');
-    localStorage.removeItem('google_profile');
-    console.log('✅ Auth state cleared from localStorage');
-
-    // Clear session and socket
-    if (currentSession && socket) socket.emit('end-session');
-    if (socket) socket.disconnect();
-    setUser(null);
-    setCurrentSession(null);
-    setHasJoined(false);
-    setSocket(io(config.SERVER_URL));
-  };
-
-  useEffect(() => {
-    const newSocket = io(config.SERVER_URL);
-    setSocket(newSocket);
-    return () => newSocket.close();
-  }, []);
-
-  useEffect(() => {
-    if (!socket) return;
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => setIsConnected(false);
-    const handleJoined = (data) => setUser(data.user);
-    const handlePartnerFound = (data) =>
-      setCurrentSession({ id: data.sessionId, partner: data.partner, startTime: new Date() });
-    const handleSessionEnded = () => setCurrentSession(null);
-    const handlePartnerDisconnected = () => setCurrentSession(null);
-
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('joined', handleJoined);
-    socket.on('partner-found', handlePartnerFound);
-    socket.on('session-ended', handleSessionEnded);
-    socket.on('partner-disconnected', handlePartnerDisconnected);
-
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('joined', handleJoined);
-      socket.off('partner-found', handlePartnerFound);
-      socket.off('session-ended', handleSessionEnded);
-      socket.off('partner-disconnected', handlePartnerDisconnected);
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    if (!user && appUser && socket && isConnected && !hasJoined) {
-      setHasJoined(true);
-      socket.emit('join', {
-        name: appUser.displayName,
-        focusStyle: appUser.focusStyle,
-        workType: appUser.workType,
-        sessionLength: appUser.sessionLength,
-        adhdType: appUser.adhdType,
-      });
-    }
-  }, [user, appUser, socket, isConnected, hasJoined]);
-
-  const handleProfileComplete = (profileData) => {
-    if (socket && isConnected) socket.emit('join', profileData);
-  };
-
-  // Invite pages bypass auth checks
-  if (isInvitePage) {
-    return (
-      <Routes>
-        <Route path="/invite/:token" element={<InviteLanding />} />
-      </Routes>
-    );
-  }
-
-  // DEMO MODE: Skip all auth checks and go directly to app
-  if (isDemoMode) {
-    // Skip socket connection requirement for demo
-    return (
-      <div className="min-h-screen" style={{
-        background: `url(${currentBackground}) no-repeat center center`,
-        backgroundSize: 'cover'
-      }}>
-        <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
-        <BackgroundSelector />
-        <Routes>
-          <Route path="/invite/:token" element={<InviteLanding />} />
-          <Route path="/" element={<HomePage socket={null} user={user} />} />
-          <Route path="/friends" element={<FriendsPage socket={null} user={user} convexFriends={convexFriends} createInviteLink={createInviteLink} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    );
-  }
-
-  // Waiting for auth to initialize
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-        <p className="mt-4 text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
-  // Not authenticated → show sign-in screen
-  if (!authUserId) {
-    return <AuthScreen onAuthComplete={handleAuthComplete} />;
-  }
-
-  // Authenticated but appUser profile not loaded yet
-  if (appUser === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-      </div>
-    );
-  }
-
-  // Authenticated but no BodyDouble profile yet → collect username/preferences
-  if (appUser === null) {
-    return <ProfileSetupConvex onComplete={handleProfileComplete} googleProfile={googleProfile} />;
-  }
-
-  // Waiting for socket connection
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (currentSession) {
-    return (
-      <SessionPage
-        socket={socket}
-        session={currentSession}
-        user={user}
-        onEndSession={() => setCurrentSession(null)}
-      />
-    );
-  }
-
-  return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover'
-    }}>
-      <Navbar user={user} onLogout={handleLogout} />
-      <BackgroundSelector />
-      <Routes>
-        <Route path="/invite/:token" element={<InviteLanding />} />
-        <Route path="/" element={<HomePage socket={socket} user={user} />} />
-        <Route path="/friends" element={<FriendsPage socket={socket} user={user} useConvex convexFriends={convexFriends} createInviteLink={createInviteLink} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </div>
-  );
-}
+// UNUSED: Old Convex auth implementation - kept for reference
+// function AppContentConvexInner() {
+//   ... (removed for demo mode)
+// }
 
 function AppContentConvex() {
   // DEMO MODE: Use demo component instead of Convex auth
