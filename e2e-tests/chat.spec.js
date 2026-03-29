@@ -71,10 +71,16 @@ test.describe('BodyDouble Chat Functionality', () => {
     });
 
     // Wait and collect logs
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
 
     console.log('Console logs:', logs);
     console.log('Console errors:', errors);
+
+    // Check for demo mode socket connection log
+    const demoLogs = logs.filter(l => l.includes('Demo mode'));
+    if (demoLogs.length > 0) {
+      console.log('Demo mode logs:', demoLogs);
+    }
 
     // Check for specific errors related to socket or chat
     const socketErrors = errors.filter(e =>
