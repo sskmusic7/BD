@@ -6,7 +6,7 @@ import io from 'socket.io-client';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
-// import SessionPage from './components/SessionPage';
+import SessionPage from './components/SessionPage';
 import ProfileSetup from './components/ProfileSetup';
 // import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
@@ -180,13 +180,90 @@ function AppContentLegacy() {
 
 // DEMO MODE: Simple app without auth/Convex
 function AppContentDemo() {
-  const [user] = useState({
+  const initialUser = {
+    id: 'demo_user_' + Date.now(),
     name: 'Demo User',
     focusStyle: 'Body Doubling',
     workType: 'Creative Work',
     sessionLength: '25 minutes',
     adhdType: 'Inattentive'
-  });
+  };
+  const [user, setUser] = useState(initialUser);
+  const [socket, setSocket] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null);
+
+  // Initialize socket connection for demo mode
+  useEffect(() => {
+    const newSocket = io(config.SERVER_URL);
+
+    // When connected, join the queue
+    newSocket.on('connect', () => {
+      console.log('Demo mode: Socket connected');
+      // Emit join event with demo user profile
+      newSocket.emit('join', {
+        name: user.name,
+        focusStyle: user.focusStyle,
+        workType: user.workType,
+        sessionLength: user.sessionLength,
+        adhdType: user.adhdType
+      });
+    });
+
+    // Handle partner found
+    const handlePartnerFound = (data) => {
+      console.log('Demo mode: Partner found!', data);
+      setCurrentSession({
+        id: data.sessionId,
+        partner: data.partner,
+        startTime: new Date()
+      });
+    };
+
+    const handleSessionEnded = () => {
+      console.log('Demo mode: Session ended');
+      setCurrentSession(null);
+    };
+
+    const handleJoined = (data) => {
+      console.log('Demo mode: Joined queue', data);
+      if (data.user) {
+        // Update user with server-assigned data (like socket id)
+        setUser(prevUser => ({
+          ...prevUser,
+          id: data.user.id || prevUser.id
+        }));
+      }
+    };
+
+    newSocket.on('partner-found', handlePartnerFound);
+    newSocket.on('session-ended', handleSessionEnded);
+    newSocket.on('joined', handleJoined);
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.off('connect');
+      newSocket.off('partner-found', handlePartnerFound);
+      newSocket.off('session-ended', handleSessionEnded);
+      newSocket.off('joined', handleJoined);
+      newSocket.close();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount - user properties are initial demo values
+
+  // If in an active session, show SessionPage
+  if (currentSession) {
+    return (
+      <BackgroundRenderer>
+        <SessionPage
+          socket={socket}
+          session={currentSession}
+          user={user}
+          onEndSession={() => setCurrentSession(null)}
+        />
+      </BackgroundRenderer>
+    );
+  }
 
   return (
     <BackgroundRenderer>
@@ -194,8 +271,8 @@ function AppContentDemo() {
       <BackgroundSelector />
       <Routes>
         <Route path="/invite/:token" element={<InviteLanding />} />
-        <Route path="/" element={<HomePage socket={null} user={user} />} />
-        <Route path="/friends" element={<FriendsPage socket={null} user={user} convexFriends={[]} createInviteLink={null} />} />
+        <Route path="/" element={<HomePage socket={socket} user={user} />} />
+        <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BackgroundRenderer>
