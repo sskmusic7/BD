@@ -293,7 +293,8 @@ function AppContentDemo() {
       <BackgroundSelector />
       <Routes>
         <Route path="/invite/:token" element={<InviteLanding />} />
-        <Route path="/" element={<HomePage socket={socket} user={user} />} />
+        {/* Add key to force remount when socket becomes ready */}
+        <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={<HomePage socket={socket} user={user} />} />
         <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
