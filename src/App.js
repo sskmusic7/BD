@@ -225,7 +225,10 @@ function AppContentDemo() {
 
     const handleConnect = () => {
       console.log('Demo mode: Socket connected');
+      // IMPORTANT: Set socket ready BEFORE emitting join
+      // This ensures the UI shows the loading state until socket is fully ready
       setIsSocketReady(true);
+      setSocket(newSocket);
       // Emit join event with demo user profile
       newSocket.emit('join', {
         name: user.name,
@@ -243,7 +246,8 @@ function AppContentDemo() {
     newSocket.on('session-ended', handleSessionEnded);
     newSocket.on('connect', handleConnect);
 
-    setSocket(newSocket);
+    // Note: setSocket is called inside handleConnect to ensure
+    // isSocketReady and socket are set in the same update cycle
 
     return () => {
       newSocket.off('joined', handleJoined);
