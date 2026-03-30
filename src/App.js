@@ -191,6 +191,7 @@ function AppContentDemo() {
   const [user, setUser] = useState(initialUser);
   const [socket, setSocket] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
+  const [isSocketReady, setIsSocketReady] = useState(false);
 
   // Initialize socket connection for demo mode
   useEffect(() => {
@@ -224,6 +225,7 @@ function AppContentDemo() {
 
     const handleConnect = () => {
       console.log('Demo mode: Socket connected');
+      setIsSocketReady(true);
       // Emit join event with demo user profile
       newSocket.emit('join', {
         name: user.name,
@@ -252,6 +254,20 @@ function AppContentDemo() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount - user properties are initial demo values
+
+  // Show loading while socket is connecting
+  if (!isSocketReady) {
+    return (
+      <BackgroundRenderer>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
+          </div>
+        </div>
+      </BackgroundRenderer>
+    );
+  }
 
   // If in an active session, show SessionPage
   if (currentSession) {
