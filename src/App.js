@@ -195,7 +195,12 @@ function AppContentDemo() {
 
   // Initialize socket connection for demo mode
   useEffect(() => {
-    const newSocket = io(config.SERVER_URL);
+    // CRITICAL FIX: Create socket with autoConnect=false to prevent race condition
+    // This ensures all event handlers are attached before connection occurs
+    const newSocket = io(config.SERVER_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling']
+    });
 
     // Define handlers BEFORE setting up events
     const handleJoined = (data) => {
@@ -211,7 +216,6 @@ function AppContentDemo() {
 
     const handlePartnerFound = (data) => {
       console.log('Demo mode: Partner found!', data);
-      alert(`PARTNER FOUND: ${data.partner?.name}! Session starting...`);
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,
@@ -224,13 +228,17 @@ function AppContentDemo() {
       setCurrentSession(null);
     };
 
+    const handlePartnerDisconnected = () => {
+      console.log('Demo mode: Partner disconnected');
+      setCurrentSession(null);
+    };
+
     const handleConnect = () => {
-      console.log('Demo mode: Socket connected');
-      // IMPORTANT: Set socket ready BEFORE emitting join
-      // This ensures the UI shows the loading state until socket is fully ready
+      console.log('Demo mode: Socket connected, socket.id:', newSocket.id);
+      // Set socket ready first
       setIsSocketReady(true);
       setSocket(newSocket);
-      // Emit join event with demo user profile
+      // Now emit join event with demo user profile
       newSocket.emit('join', {
         name: user.name,
         focusStyle: user.focusStyle,
@@ -240,21 +248,30 @@ function AppContentDemo() {
       });
     };
 
-    // IMPORTANT: Set up ALL event handlers BEFORE the socket might emit
-    // Set up 'joined' FIRST so it's ready when connect fires
+    const handleDisconnect = () => {
+      console.log('Demo mode: Socket disconnected');
+      setIsSocketReady(false);
+    };
+
+    // CRITICAL: Set up ALL event handlers BEFORE connecting
+    // This is the proper pattern according to Socket.IO docs
     newSocket.on('joined', handleJoined);
     newSocket.on('partner-found', handlePartnerFound);
     newSocket.on('session-ended', handleSessionEnded);
+    newSocket.on('partner-disconnected', handlePartnerDisconnected);
     newSocket.on('connect', handleConnect);
+    newSocket.on('disconnect', handleDisconnect);
 
-    // Note: setSocket is called inside handleConnect to ensure
-    // isSocketReady and socket are set in the same update cycle
+    // NOW connect after handlers are attached
+    newSocket.connect();
 
     return () => {
       newSocket.off('joined', handleJoined);
       newSocket.off('partner-found', handlePartnerFound);
       newSocket.off('session-ended', handleSessionEnded);
+      newSocket.off('partner-disconnected', handlePartnerDisconnected);
       newSocket.off('connect', handleConnect);
+      newSocket.off('disconnect', handleDisconnect);
       newSocket.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

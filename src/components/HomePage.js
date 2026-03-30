@@ -28,22 +28,20 @@ const HomePage = ({ socket, user }) => {
         setIsSearching(false);
       };
 
-      const handlePartnerFound = () => {
-        console.log('HomePage: Received partner-found event');
-        setIsSearching(false);
-      };
+      // CRITICAL FIX: Removed partner-found handler from HomePage
+      // The partner-found event is handled in App.js which sets currentSession
+      // and triggers navigation to SessionPage. Having duplicate handlers
+      // causes state synchronization issues.
 
       // Set up event handlers
       socket.on('waiting-for-partner', handleWaiting);
       socket.on('search-cancelled', handleCancelled);
-      socket.on('partner-found', handlePartnerFound);
 
       // Clean up on unmount
       return () => {
         console.log('HomePage: Cleaning up socket event handlers');
         socket.off('waiting-for-partner', handleWaiting);
         socket.off('search-cancelled', handleCancelled);
-        socket.off('partner-found', handlePartnerFound);
       };
     }
   }, [socket]);
@@ -51,10 +49,7 @@ const HomePage = ({ socket, user }) => {
   const handleFindPartner = () => {
     console.log('HomePage: Clicked Find a Partner, socket =', socket ? socket.id : 'null');
     if (socket) {
-      alert(`Emitting find-partner from socket ${socket.id}`);
       socket.emit('find-partner');
-    } else {
-      alert('ERROR: Socket is null!');
     }
   };
 
