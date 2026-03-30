@@ -196,20 +196,18 @@ function AppContentDemo() {
   useEffect(() => {
     const newSocket = io(config.SERVER_URL);
 
-    // When connected, join the queue
-    newSocket.on('connect', () => {
-      console.log('Demo mode: Socket connected');
-      // Emit join event with demo user profile
-      newSocket.emit('join', {
-        name: user.name,
-        focusStyle: user.focusStyle,
-        workType: user.workType,
-        sessionLength: user.sessionLength,
-        adhdType: user.adhdType
-      });
-    });
+    // Define handlers BEFORE setting up events
+    const handleJoined = (data) => {
+      console.log('Demo mode: Joined queue', data);
+      if (data.user) {
+        // Update user with server-assigned data (like socket id)
+        setUser(prevUser => ({
+          ...prevUser,
+          id: data.user.id || prevUser.id
+        }));
+      }
+    };
 
-    // Handle partner found
     const handlePartnerFound = (data) => {
       console.log('Demo mode: Partner found!', data);
       setCurrentSession({
@@ -224,28 +222,32 @@ function AppContentDemo() {
       setCurrentSession(null);
     };
 
-    const handleJoined = (data) => {
-      console.log('Demo mode: Joined queue', data);
-      if (data.user) {
-        // Update user with server-assigned data (like socket id)
-        setUser(prevUser => ({
-          ...prevUser,
-          id: data.user.id || prevUser.id
-        }));
-      }
+    const handleConnect = () => {
+      console.log('Demo mode: Socket connected');
+      // Emit join event with demo user profile
+      newSocket.emit('join', {
+        name: user.name,
+        focusStyle: user.focusStyle,
+        workType: user.workType,
+        sessionLength: user.sessionLength,
+        adhdType: user.adhdType
+      });
     };
 
+    // IMPORTANT: Set up ALL event handlers BEFORE the socket might emit
+    // Set up 'joined' FIRST so it's ready when connect fires
+    newSocket.on('joined', handleJoined);
     newSocket.on('partner-found', handlePartnerFound);
     newSocket.on('session-ended', handleSessionEnded);
-    newSocket.on('joined', handleJoined);
+    newSocket.on('connect', handleConnect);
 
     setSocket(newSocket);
 
     return () => {
-      newSocket.off('connect');
+      newSocket.off('joined', handleJoined);
       newSocket.off('partner-found', handlePartnerFound);
       newSocket.off('session-ended', handleSessionEnded);
-      newSocket.off('joined', handleJoined);
+      newSocket.off('connect', handleConnect);
       newSocket.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
