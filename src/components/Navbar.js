@@ -17,7 +17,7 @@ const Navbar = ({ user, onLogout }) => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <img 
-              src="/official logo.png" 
+              src="/logo-compressed.png" 
               alt="BodyDouble Logo" 
               className="max-w-11 max-h-11 w-auto h-auto"
             />

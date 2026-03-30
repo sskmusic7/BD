@@ -220,7 +220,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <img 
-                src="/official logo.png" 
+                src="/logo-compressed.png" 
                 alt="BodyDouble Logo" 
                 className="max-w-12 max-h-12 w-auto h-auto"
               />

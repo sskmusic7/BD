@@ -53,7 +53,7 @@ const ProfileSetup = ({ onComplete }) => {
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="/official logo.png" 
+              src="/logo-compressed.png" 
               alt="BodyDouble Logo" 
               className="max-w-32 max-h-32 w-auto h-auto"
             />

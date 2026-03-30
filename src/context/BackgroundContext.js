@@ -13,6 +13,11 @@ export const useBackground = () => {
 // Available backgrounds
 const BACKGROUNDS = [
   {
+    name: 'Cozy Cabin (Video)',
+    path: '/backgrounds/Cabin-compressed.mp4',
+    type: 'video'
+  },
+  {
     name: 'Dolly In (Video)',
     path: '/backgrounds/dolly-in.mp4',
     type: 'video'
