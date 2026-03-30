@@ -211,6 +211,7 @@ function AppContentDemo() {
 
     const handlePartnerFound = (data) => {
       console.log('Demo mode: Partner found!', data);
+      alert(`PARTNER FOUND: ${data.partner?.name}! Session starting...`);
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,

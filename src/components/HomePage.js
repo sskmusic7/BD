@@ -51,7 +51,10 @@ const HomePage = ({ socket, user }) => {
   const handleFindPartner = () => {
     console.log('HomePage: Clicked Find a Partner, socket =', socket ? socket.id : 'null');
     if (socket) {
+      alert(`Emitting find-partner from socket ${socket.id}`);
       socket.emit('find-partner');
+    } else {
+      alert('ERROR: Socket is null!');
     }
   };
 
