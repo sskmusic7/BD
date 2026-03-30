@@ -192,14 +192,19 @@ function AppContentDemo() {
   const [socket, setSocket] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Track searching state at App level
 
   // Initialize socket connection for demo mode
   useEffect(() => {
     // CRITICAL FIX: Create socket with autoConnect=false to prevent race condition
     // This ensures all event handlers are attached before connection occurs
+    // Also use explicit WebSocket transport for reliability
     const newSocket = io(config.SERVER_URL, {
       autoConnect: false,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
     });
 
     // Define handlers BEFORE setting up events
@@ -231,6 +236,17 @@ function AppContentDemo() {
     const handlePartnerDisconnected = () => {
       console.log('Demo mode: Partner disconnected');
       setCurrentSession(null);
+      setIsSearching(false);
+    };
+
+    const handleWaitingForPartner = () => {
+      console.log('Demo mode: Waiting for partner...');
+      setIsSearching(true);
+    };
+
+    const handleSearchCancelled = () => {
+      console.log('Demo mode: Search cancelled');
+      setIsSearching(false);
     };
 
     const handleConnect = () => {
@@ -259,6 +275,8 @@ function AppContentDemo() {
     newSocket.on('partner-found', handlePartnerFound);
     newSocket.on('session-ended', handleSessionEnded);
     newSocket.on('partner-disconnected', handlePartnerDisconnected);
+    newSocket.on('waiting-for-partner', handleWaitingForPartner);
+    newSocket.on('search-cancelled', handleSearchCancelled);
     newSocket.on('connect', handleConnect);
     newSocket.on('disconnect', handleDisconnect);
 
@@ -270,6 +288,8 @@ function AppContentDemo() {
       newSocket.off('partner-found', handlePartnerFound);
       newSocket.off('session-ended', handleSessionEnded);
       newSocket.off('partner-disconnected', handlePartnerDisconnected);
+      newSocket.off('waiting-for-partner', handleWaitingForPartner);
+      newSocket.off('search-cancelled', handleSearchCancelled);
       newSocket.off('connect', handleConnect);
       newSocket.off('disconnect', handleDisconnect);
       newSocket.close();
@@ -312,7 +332,14 @@ function AppContentDemo() {
       <Routes>
         <Route path="/invite/:token" element={<InviteLanding />} />
         {/* Add key to force remount when socket becomes ready */}
-        <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={<HomePage socket={socket} user={user} />} />
+        <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
+          <HomePage
+            socket={socket}
+            user={user}
+            isSearching={isSearching}
+            onSearchingChange={setIsSearching}
+          />
+        } />
         <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

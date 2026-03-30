@@ -3,9 +3,8 @@ import { Search, Users, Clock, Brain, Heart, Zap } from 'lucide-react';
 import config from '../config/config';
 import { useBackground } from '../context/BackgroundContext';
 
-const HomePage = ({ socket, user }) => {
+const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () => {} }) => {
   const { currentBackground } = useBackground();
-  const [isSearching, setIsSearching] = useState(false);
   const [stats, setStats] = useState({ onlineUsers: 0, activeSessions: 0 });
 
   useEffect(() => {
@@ -15,35 +14,9 @@ const HomePage = ({ socket, user }) => {
       .then(data => setStats(data))
       .catch(console.error);
 
-    if (socket) {
-      console.log('HomePage: Setting up socket event handlers, socket connected:', socket.connected);
-
-      const handleWaiting = () => {
-        console.log('HomePage: Received waiting-for-partner event');
-        setIsSearching(true);
-      };
-
-      const handleCancelled = () => {
-        console.log('HomePage: Received search-cancelled event');
-        setIsSearching(false);
-      };
-
-      // CRITICAL FIX: Removed partner-found handler from HomePage
-      // The partner-found event is handled in App.js which sets currentSession
-      // and triggers navigation to SessionPage. Having duplicate handlers
-      // causes state synchronization issues.
-
-      // Set up event handlers
-      socket.on('waiting-for-partner', handleWaiting);
-      socket.on('search-cancelled', handleCancelled);
-
-      // Clean up on unmount
-      return () => {
-        console.log('HomePage: Cleaning up socket event handlers');
-        socket.off('waiting-for-partner', handleWaiting);
-        socket.off('search-cancelled', handleCancelled);
-      };
-    }
+    // NOTE: Socket event handlers are now managed in App.js
+    // to ensure they're attached before HomePage renders
+    // This prevents race conditions where events are missed
   }, [socket]);
 
   const handleFindPartner = () => {
@@ -56,6 +29,7 @@ const HomePage = ({ socket, user }) => {
   const handleCancelSearch = () => {
     if (socket) {
       socket.emit('cancel-search');
+      onSearchingChange(false);
     }
   };
 
