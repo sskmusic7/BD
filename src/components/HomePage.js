@@ -16,31 +16,36 @@ const HomePage = ({ socket, user }) => {
       .catch(console.error);
 
     if (socket) {
-      console.log('HomePage: Setting up socket event handlers');
-      socket.on('waiting-for-partner', () => {
+      console.log('HomePage: Setting up socket event handlers, socket connected:', socket.connected);
+
+      const handleWaiting = () => {
         console.log('HomePage: Received waiting-for-partner event');
         setIsSearching(true);
-      });
+      };
 
-      socket.on('search-cancelled', () => {
+      const handleCancelled = () => {
         console.log('HomePage: Received search-cancelled event');
         setIsSearching(false);
-      });
+      };
 
-      socket.on('partner-found', () => {
+      const handlePartnerFound = () => {
         console.log('HomePage: Received partner-found event');
         setIsSearching(false);
-      });
-    }
+      };
 
-    return () => {
-      if (socket) {
+      // Set up event handlers
+      socket.on('waiting-for-partner', handleWaiting);
+      socket.on('search-cancelled', handleCancelled);
+      socket.on('partner-found', handlePartnerFound);
+
+      // Clean up on unmount
+      return () => {
         console.log('HomePage: Cleaning up socket event handlers');
-        socket.off('waiting-for-partner');
-        socket.off('search-cancelled');
-        socket.off('partner-found');
-      }
-    };
+        socket.off('waiting-for-partner', handleWaiting);
+        socket.off('search-cancelled', handleCancelled);
+        socket.off('partner-found', handlePartnerFound);
+      };
+    }
   }, [socket]);
 
   const handleFindPartner = () => {
