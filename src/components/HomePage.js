@@ -16,21 +16,26 @@ const HomePage = ({ socket, user }) => {
       .catch(console.error);
 
     if (socket) {
+      console.log('HomePage: Setting up socket event handlers');
       socket.on('waiting-for-partner', () => {
+        console.log('HomePage: Received waiting-for-partner event');
         setIsSearching(true);
       });
 
       socket.on('search-cancelled', () => {
+        console.log('HomePage: Received search-cancelled event');
         setIsSearching(false);
       });
 
       socket.on('partner-found', () => {
+        console.log('HomePage: Received partner-found event');
         setIsSearching(false);
       });
     }
 
     return () => {
       if (socket) {
+        console.log('HomePage: Cleaning up socket event handlers');
         socket.off('waiting-for-partner');
         socket.off('search-cancelled');
         socket.off('partner-found');
@@ -39,6 +44,7 @@ const HomePage = ({ socket, user }) => {
   }, [socket]);
 
   const handleFindPartner = () => {
+    console.log('HomePage: Clicked Find a Partner, socket =', socket ? socket.id : 'null');
     if (socket) {
       socket.emit('find-partner');
     }
