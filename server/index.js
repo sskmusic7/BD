@@ -216,6 +216,9 @@ io.on('connection', (socket) => {
       return;
     }
 
+    console.log(`\n=== FIND-PARTNER: ${currentUser.name} (${socket.id}) ===`);
+    console.log('Waiting queue before:', waitingQueue.map(u => `${u.name} (${u.id})`));
+
     // Don't allow matching if user already in a session
     if (currentUser.currentSession) {
       console.log('find-partner: User already in session', currentUser.name);
@@ -227,6 +230,7 @@ io.on('connection', (socket) => {
     const existingIndex = waitingQueue.findIndex(u => u.id === socket.id);
     if (existingIndex > -1) {
       waitingQueue.splice(existingIndex, 1);
+      console.log('Removed existing entry from queue');
     }
 
     // Filter queue to only include users who are online and not in sessions
@@ -234,7 +238,9 @@ io.on('connection', (socket) => {
       const user = users.get(u.id);
       return user && user.isOnline && !user.currentSession;
     });
-    
+
+    console.log('Available partners:', availablePartners.length);
+
     // Update queue to only valid users
     waitingQueue.length = 0;
     waitingQueue.push(...availablePartners);
@@ -243,17 +249,20 @@ io.on('connection', (socket) => {
     if (availablePartners.length > 0) {
       const partner = availablePartners.shift();
       const partnerUser = users.get(partner.id);
-      
+
+      console.log(`Found partner: ${partnerUser.name} (${partner.id})`);
+
       // Double-check partner is still available
       if (!partnerUser || !partnerUser.isOnline || partnerUser.currentSession) {
+        console.log('Partner no longer available, adding to queue');
         // Partner no longer available, add current user to queue
         waitingQueue.push(currentUser);
         socket.emit('waiting-for-partner');
         return;
       }
-      
+
       const sessionId = uuidv4();
-      
+
       // Create session
       const session = {
         id: sessionId,
@@ -290,6 +299,7 @@ io.on('connection', (socket) => {
       waitingQueue.push(currentUser);
       socket.emit('waiting-for-partner');
       console.log(`User ${currentUser.name} added to waiting queue (${waitingQueue.length} waiting)`);
+      console.log('Waiting queue after:', waitingQueue.map(u => `${u.name} (${u.id})`));
     }
   });
 

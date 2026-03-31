@@ -72,9 +72,9 @@ test('trace frontend socket event flow', async ({ browser }) => {
   // Analyze events
   console.log('\n=== Event Analysis ===');
 
-  const user1HasWaiting = events1.some(e => e.includes('waiting-for-partner'));
+  const user1HasWaiting = events1.some(e => e.includes('Waiting for partner'));
   const user1HasPartner = events1.some(e => e.includes('Partner found'));
-  const user2HasWaiting = events2.some(e => e.includes('waiting-for-partner'));
+  const user2HasWaiting = events2.some(e => e.includes('Waiting for partner'));
   const user2HasPartner = events2.some(e => e.includes('Partner found'));
 
   console.log('User 1 received waiting-for-partner:', user1HasWaiting);
@@ -94,26 +94,22 @@ test('trace frontend socket event flow', async ({ browser }) => {
   console.log('User 1 socket connected:', events1.some(e => e.includes('Socket connected')));
   console.log('User 1 joined queue:', events1.some(e => e.includes('Joined queue')));
   console.log('User 1 clicked find partner:', events1.some(e => e.includes('Clicked Find a Partner')));
-  console.log('User 1 HomePage handlers set up:', events1.some(e => e.includes('Setting up socket event handlers')));
+  console.log('User 1 handlers ready:', events1.some(e => e.includes('Demo mode: Socket connected')));
 
   console.log('\nUser 2 socket connected:', events2.some(e => e.includes('Socket connected')));
   console.log('User 2 joined queue:', events2.some(e => e.includes('Joined queue')));
   console.log('User 2 clicked find partner:', events2.some(e => e.includes('Clicked Find a Partner')));
-  console.log('User 2 HomePage handlers set up:', events2.some(e => e.includes('Setting up socket event handlers')));
+  console.log('User 2 handlers ready:', events2.some(e => e.includes('Demo mode: Socket connected')));
 
   // Check for mismatched event order
   const user1ConnectedIndex = events1.findIndex(e => e.includes('Socket connected'));
-  const user1HandlersIndex = events1.findIndex(e => e.includes('Setting up socket event handlers'));
+  const user1JoinedIndex = events1.findIndex(e => e.includes('Joined queue'));
   const user1ClickedIndex = events1.findIndex(e => e.includes('Clicked Find a Partner'));
 
   console.log('\n=== Event Order Analysis (User 1) ===');
   console.log('Socket connected at index:', user1ConnectedIndex);
-  console.log('Handlers set up at index:', user1HandlersIndex);
+  console.log('Joined queue at index:', user1JoinedIndex);
   console.log('Clicked Find a Partner at index:', user1ClickedIndex);
-
-  if (user1ClickedIndex !== -1 && user1HandlersIndex === -1) {
-    console.error('\n!!! CRITICAL BUG: User clicked Find a Partner BEFORE HomePage handlers were set up !!!');
-  }
 
   // Test expectations
   expect(button1Visible).toBe(true);
