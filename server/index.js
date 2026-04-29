@@ -282,12 +282,20 @@ io.on('connection', (socket) => {
       waitingQueue.push(...availablePartners);
       
       // Notify both users
+      console.log(`Emitting partner-found to current user (${socket.id}) and partner (${partner.id})`);
       socket.emit('partner-found', { partner: partnerUser, sessionId });
-      io.to(partner.id).emit('partner-found', { partner: currentUser, sessionId });
-      
+
+      // Get the partner's socket and emit directly
+      const partnerSocket = io.sockets.sockets.get(partner.id);
+      if (partnerSocket) {
+        partnerSocket.emit('partner-found', { partner: currentUser, sessionId });
+        console.log(`Successfully emitted to partner socket`);
+      } else {
+        console.error(`Partner socket not found for id: ${partner.id}`);
+      }
+
       // Join both to session room
       socket.join(sessionId);
-      const partnerSocket = io.sockets.sockets.get(partner.id);
       if (partnerSocket) {
         partnerSocket.join(sessionId);
       }
