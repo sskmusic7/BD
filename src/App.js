@@ -55,37 +55,37 @@ function AppContentLegacy() {
   const [socket, setSocket] = useState(null);
   const [user, setUser] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isSocketReady, setIsSocketReady] = useState(false);
 
   useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io(config.SERVER_URL);
-    setSocket(newSocket);
+    // Initialize socket connection with autoConnect=false to prevent race condition
+    // This ensures all event handlers are attached before connection occurs
+    const newSocket = io(config.SERVER_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
+    });
 
-    return () => {
-      newSocket.close();
-    };
-  }, []);
-
-  // Separate effect for socket event listeners
-  useEffect(() => {
-    if (!socket) return;
-
+    // Define handlers BEFORE setting up events
     const handleConnect = () => {
-      setIsConnected(true);
       console.log('Connected to server');
+      setIsSocketReady(true);
+      setSocket(newSocket);
     };
 
     const handleDisconnect = () => {
-      setIsConnected(false);
       console.log('Disconnected from server');
     };
 
     const handleJoined = (data) => {
       setUser(data.user);
+      console.log('Joined with user:', data.user);
     };
 
     const handlePartnerFound = (data) => {
+      console.log('Partner found:', data);
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,
@@ -94,29 +94,37 @@ function AppContentLegacy() {
     };
 
     const handleSessionEnded = () => {
+      console.log('Session ended');
       setCurrentSession(null);
     };
 
     const handlePartnerDisconnected = () => {
+      console.log('Partner disconnected');
       setCurrentSession(null);
     };
 
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('joined', handleJoined);
-    socket.on('partner-found', handlePartnerFound);
-    socket.on('session-ended', handleSessionEnded);
-    socket.on('partner-disconnected', handlePartnerDisconnected);
+    // CRITICAL: Set up ALL event handlers BEFORE connecting
+    // This is the proper pattern according to Socket.IO docs
+    newSocket.on('connect', handleConnect);
+    newSocket.on('disconnect', handleDisconnect);
+    newSocket.on('joined', handleJoined);
+    newSocket.on('partner-found', handlePartnerFound);
+    newSocket.on('session-ended', handleSessionEnded);
+    newSocket.on('partner-disconnected', handlePartnerDisconnected);
+
+    // NOW connect after handlers are attached
+    newSocket.connect();
 
     return () => {
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('joined', handleJoined);
-      socket.off('partner-found', handlePartnerFound);
-      socket.off('session-ended', handleSessionEnded);
-      socket.off('partner-disconnected', handlePartnerDisconnected);
+      newSocket.off('connect', handleConnect);
+      newSocket.off('disconnect', handleDisconnect);
+      newSocket.off('joined', handleJoined);
+      newSocket.off('partner-found', handlePartnerFound);
+      newSocket.off('session-ended', handleSessionEnded);
+      newSocket.off('partner-disconnected', handlePartnerDisconnected);
+      newSocket.close();
     };
-  }, [socket]);
+  }, []);
 
   const handleProfileComplete = (profileData) => {
     if (socket) {
@@ -145,7 +153,8 @@ function AppContentLegacy() {
     setSocket(newSocket);
   };
 
-  if (!isConnected) {
+  // Show loading while socket is connecting
+  if (!isSocketReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
