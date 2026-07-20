@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import io from 'socket.io-client';
-// import { useQuery, useMutation } from 'convex/react';
-// import { api } from './convexApi';
+import { Authenticated, Unauthenticated } from 'convex/react';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
 import HomePage from './components/HomePage';
 import SessionPage from './components/SessionPage';
 import ProfileSetup from './components/ProfileSetup';
-// import ProfileSetupConvex from './components/ProfileSetupConvex';
 import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
-// import AuthScreen from './components/AuthScreen';
+import AuthScreen from './components/AuthScreen';
 import InviteLanding from './components/InviteLanding';
-// import { googleAuthService } from './services/googleAuthService';
 
 // Background renderer component that handles both image/gif and video
 const BackgroundRenderer = ({ children }) => {
@@ -362,11 +359,183 @@ function AppContentDemo() {
 // }
 
 function AppContentConvex() {
-  // DEMO MODE: Use demo component instead of Convex auth
+  // AUTH ENABLED: Use Convex auth to test OAuth
+  const [user, setUser] = useState(null);
+  const [socket, setSocket] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null);
+  const [isSocketReady, setIsSocketReady] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Initialize socket connection when authenticated
+  useEffect(() => {
+    // We'll set up the socket inside the Authenticated component
+  }, []);
+
+  const handleAuthComplete = (userData) => {
+    console.log('Auth complete:', userData);
+    setUser(userData);
+  };
+
   return (
     <Router>
-      <AppContentDemo />
+      <Unauthenticated>
+        <AuthScreen onAuthComplete={handleAuthComplete} />
+      </Unauthenticated>
+      <Authenticated>
+        <AppAuthenticated
+          user={user}
+          setUser={setUser}
+          socket={socket}
+          setSocket={setSocket}
+          currentSession={currentSession}
+          setCurrentSession={setCurrentSession}
+          isSocketReady={isSocketReady}
+          setIsSocketReady={setIsSocketReady}
+          isSearching={isSearching}
+          setIsSearching={setIsSearching}
+        />
+      </Authenticated>
     </Router>
+  );
+}
+
+function AppAuthenticated({
+  user,
+  setUser,
+  socket,
+  setSocket,
+  currentSession,
+  setCurrentSession,
+  isSocketReady,
+  setIsSocketReady,
+  isSearching,
+  setIsSearching
+}) {
+  // Initialize socket connection
+  useEffect(() => {
+    if (socket) return; // Already initialized
+
+    const newSocket = io(config.SERVER_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
+    });
+
+    const handleConnect = () => {
+      console.log('Auth mode: Socket connected');
+      setIsSocketReady(true);
+      setSocket(newSocket);
+    };
+
+    const handleJoined = (data) => {
+      console.log('Auth mode: Joined queue', data);
+      if (data.user) {
+        setUser(data.user);
+      }
+    };
+
+    const handlePartnerFound = (data) => {
+      console.log('Auth mode: Partner found!', data);
+      setCurrentSession({
+        id: data.sessionId,
+        partner: data.partner,
+        startTime: new Date()
+      });
+    };
+
+    const handleSessionEnded = () => {
+      console.log('Auth mode: Session ended');
+      setCurrentSession(null);
+    };
+
+    const handlePartnerDisconnected = () => {
+      console.log('Auth mode: Partner disconnected');
+      setCurrentSession(null);
+      setIsSearching(false);
+    };
+
+    const handleWaitingForPartner = () => {
+      console.log('Auth mode: Waiting for partner...');
+      setIsSearching(true);
+    };
+
+    const handleSearchCancelled = () => {
+      console.log('Auth mode: Search cancelled');
+      setIsSearching(false);
+    };
+
+    newSocket.on('connect', handleConnect);
+    newSocket.on('joined', handleJoined);
+    newSocket.on('partner-found', handlePartnerFound);
+    newSocket.on('session-ended', handleSessionEnded);
+    newSocket.on('partner-disconnected', handlePartnerDisconnected);
+    newSocket.on('waiting-for-partner', handleWaitingForPartner);
+    newSocket.on('search-cancelled', handleSearchCancelled);
+    newSocket.on('disconnect', () => setIsSocketReady(false));
+
+    newSocket.connect();
+
+    return () => {
+      newSocket.off('connect', handleConnect);
+      newSocket.off('joined', handleJoined);
+      newSocket.off('partner-found', handlePartnerFound);
+      newSocket.off('session-ended', handleSessionEnded);
+      newSocket.off('partner-disconnected', handlePartnerDisconnected);
+      newSocket.off('waiting-for-partner', handleWaitingForPartner);
+      newSocket.off('search-cancelled', handleSearchCancelled);
+      newSocket.disconnect();
+    };
+  }, []);
+
+  // Show loading while socket is connecting
+  if (!isSocketReady) {
+    return (
+      <BackgroundRenderer>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
+          </div>
+        </div>
+      </BackgroundRenderer>
+    );
+  }
+
+  // If in an active session, show SessionPage
+  if (currentSession) {
+    return (
+      <BackgroundRenderer>
+        <SessionPage
+          socket={socket}
+          session={currentSession}
+          user={user}
+          onEndSession={() => setCurrentSession(null)}
+        />
+      </BackgroundRenderer>
+    );
+  }
+
+  // Show main app
+  return (
+    <BackgroundRenderer>
+      <Navbar user={user} onLogout={() => console.log('Auth mode - logout')} />
+      <BackgroundSelector />
+      <Routes>
+        <Route path="/invite/:token" element={<InviteLanding />} />
+        <Route path="/" element={
+          <HomePage
+            socket={socket}
+            user={user}
+            isSearching={isSearching}
+            onSearchingChange={setIsSearching}
+          />
+        } />
+        <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BackgroundRenderer>
   );
 }
 

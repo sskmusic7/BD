@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Mail, Lock, User } from 'lucide-react';
 import { useBackground } from '../context/BackgroundContext';
-import { googleAuthService } from '../services/googleAuthService';
 
 const AuthScreen = ({ onAuthComplete }) => {
   const { currentBackground } = useBackground();
@@ -41,27 +40,21 @@ const AuthScreen = ({ onAuthComplete }) => {
     setError('');
     setGoogleLoading(true);
     try {
-      console.log('🔐 Starting client-side Google OAuth...');
+      console.log('🔐 Starting Convex Google OAuth...');
 
-      // Initialize Google Identity Services
-      const initialized = await googleAuthService.initialize();
-      if (!initialized) {
-        throw new Error('Failed to initialize Google OAuth. Please check your connection.');
+      // Use Convex auth signIn function with Google provider
+      const result = await signIn('google');
+
+      console.log('✅ Google sign-in successful:', result);
+
+      // If signing in, the auth state will be updated automatically
+      if (result.signingIn) {
+        console.log('✅ Redirecting to Google OAuth...');
+        // The user will be redirected to Google OAuth
+        // After OAuth completes, the user will be redirected back
+        // and isAuthenticated will become true
+        onAuthComplete?.(result);
       }
-
-      // Sign in with Google
-      const userProfile = await googleAuthService.signIn();
-
-      console.log('✅ Google sign-in successful:', userProfile);
-
-      // Call onAuthComplete with Google user data
-      onAuthComplete?.({
-        authUserId: googleAuthService.getAuthUserId(),
-        authProvider: 'google',
-        email: userProfile.email,
-        name: userProfile.name,
-        avatarUrl: userProfile.picture,
-      });
 
       setGoogleLoading(false);
     } catch (err) {
