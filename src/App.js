@@ -185,6 +185,7 @@ function AppContentLegacy() {
 }
 
 // DEMO MODE: Simple app without auth/Convex
+// eslint-disable-next-line no-unused-vars
 function AppContentDemo() {
   const initialUser = {
     id: 'demo_user_' + Date.now(),
@@ -487,6 +488,7 @@ function AppAuthenticated({
       newSocket.off('search-cancelled', handleSearchCancelled);
       newSocket.disconnect();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Show loading while socket is connecting
