@@ -335,22 +335,24 @@ function AppContentDemo() {
 
   return (
     <BackgroundRenderer>
-      <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
-      <BackgroundSelector />
-      <Routes>
-        <Route path="/invite/:token" element={<InviteLanding />} />
-        {/* Add key to force remount when socket becomes ready */}
-        <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
-          <HomePage
-            socket={socket}
-            user={user}
-            isSearching={isSearching}
-            onSearchingChange={setIsSearching}
-          />
-        } />
-        <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Router>
+        <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
+        <BackgroundSelector />
+        <Routes>
+          <Route path="/invite/:token" element={<InviteLanding />} />
+          {/* Add key to force remount when socket becomes ready */}
+          <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
+            <HomePage
+              socket={socket}
+              user={user}
+              isSearching={isSearching}
+              onSearchingChange={setIsSearching}
+            />
+          } />
+          <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </BackgroundRenderer>
   );
 }
