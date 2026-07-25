@@ -263,7 +263,9 @@ function AppContentDemo() {
       setIsSocketReady(true);
       setSocket(newSocket);
       // Now emit join event with demo user profile
+      // Include unique user ID so each user is treated separately
       newSocket.emit('join', {
+        userId: user.id,
         name: user.name,
         focusStyle: user.focusStyle,
         workType: user.workType,
