@@ -47,6 +47,7 @@ const BackgroundRenderer = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line no-unused-vars
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
   const [socket, setSocket] = useState(null);
