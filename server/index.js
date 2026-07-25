@@ -143,11 +143,17 @@ io.on('connection', (socket) => {
 
   // User joins with profile info
   socket.on('join', (userData) => {
-    // Check if user already exists by name (for reconnection)
+    // Check if user already exists by userId (for reconnection)
     let existingUser = null;
     let oldSocketId = null;
     for (const [socketId, user] of users) {
-      if (user.name === userData.name) {
+      // First try to match by userId, fallback to name for backwards compatibility
+      if (userData.userId && user.userId === userData.userId) {
+        existingUser = user;
+        oldSocketId = socketId;
+        break;
+      }
+      if (user.name === userData.name && !userData.userId) {
         existingUser = user;
         oldSocketId = socketId;
         break;
@@ -194,14 +200,14 @@ io.on('connection', (socket) => {
     } else {
       // Create new user
       const user = {
-        id: socket.id,
+        id: userData.userId || socket.id, // Use client's userId if provided
         ...userData,
         isOnline: true,
         currentSession: null
       };
       users.set(socket.id, user);
-      socket.emit('joined', { userId: socket.id, user });
-      console.log('New user joined:', user.name);
+      socket.emit('joined', { userId: user.id, user });
+      console.log('New user joined:', user.name, 'with ID:', user.id);
     }
     
     // Save users after modification
