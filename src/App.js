@@ -544,7 +544,7 @@ function AppAuthenticated({
 function App({ useConvexAuth }) {
   return (
     <BackgroundProvider>
-      {useConvexAuth ? <AppContentConvex /> : <AppContentLegacy />}
+      {useConvexAuth ? <AppContentConvex /> : <AppContentDemo />}
     </BackgroundProvider>
   );
 }
