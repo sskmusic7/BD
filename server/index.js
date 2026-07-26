@@ -123,6 +123,14 @@ const waitingQueue = [];
 const activeSessions = new Map();
 const friendships = loadFriendships();
 
+// Helper: find a user by their userId (since users Map is keyed by socketId)
+function findUserByUserId(userId) {
+  for (const user of users.values()) {
+    if (user.id === userId) return user;
+  }
+  return null;
+}
+
 // Auto-save data every 30 seconds
 setInterval(() => {
   saveUsers(users);
@@ -182,7 +190,7 @@ io.on('connection', (socket) => {
       }
       
       // Remove from waiting queue if present
-      const queueIndex = waitingQueue.findIndex(u => u.id === oldSocketId);
+      const queueIndex = waitingQueue.findIndex(u => u.socketId === oldSocketId);
       if (queueIndex > -1) {
         waitingQueue.splice(queueIndex, 1);
       }
@@ -191,16 +199,17 @@ io.on('connection', (socket) => {
       users.delete(oldSocketId);
       
       // Update existing user with new socket ID
-      existingUser.id = socket.id;
+      existingUser.socketId = socket.id;
       existingUser.isOnline = true;
       existingUser.currentSession = null;
       users.set(socket.id, existingUser);
-      socket.emit('joined', { userId: socket.id, user: existingUser });
+      socket.emit('joined', { userId: existingUser.id, user: existingUser });
       console.log('User reconnected:', existingUser.name, 'from', oldSocketId, 'to', socket.id);
     } else {
       // Create new user
       const user = {
         id: userData.userId || socket.id, // Use client's userId if provided
+        socketId: socket.id, // Track actual socket ID for emitting
         ...userData,
         isOnline: true,
         currentSession: null
@@ -233,16 +242,17 @@ io.on('connection', (socket) => {
     }
 
     // Remove from queue if already waiting
-    const existingIndex = waitingQueue.findIndex(u => u.id === socket.id);
+    const existingIndex = waitingQueue.findIndex(u => u.socketId === socket.id);
     if (existingIndex > -1) {
       waitingQueue.splice(existingIndex, 1);
       console.log('Removed existing entry from queue');
     }
 
     // Filter queue to only include users who are online and not in sessions
+    // Note: waitingQueue stores full user objects, so we can check fields directly
     const availablePartners = waitingQueue.filter(u => {
-      const user = users.get(u.id);
-      return user && user.isOnline && !user.currentSession;
+      // User object is stored directly in queue, check its status
+      return u && u.isOnline && !u.currentSession;
     });
 
     console.log('Available partners:', availablePartners.length);
@@ -254,9 +264,9 @@ io.on('connection', (socket) => {
     // Find available partner from queue
     if (availablePartners.length > 0) {
       const partner = availablePartners.shift();
-      const partnerUser = users.get(partner.id);
+      const partnerUser = partner; // Queue stores full user objects
 
-      console.log(`Found partner: ${partnerUser.name} (${partner.id})`);
+      console.log(`Found partner: ${partnerUser.name} (${partnerUser.id})`);
 
       // Double-check partner is still available
       if (!partnerUser || !partnerUser.isOnline || partnerUser.currentSession) {
@@ -276,28 +286,28 @@ io.on('connection', (socket) => {
         startTime: new Date(),
         isActive: true
       };
-      
+
       activeSessions.set(sessionId, session);
-      
+
       // Update user sessions
       currentUser.currentSession = sessionId;
       partnerUser.currentSession = sessionId;
-      
+
       // Update queue
       waitingQueue.length = 0;
       waitingQueue.push(...availablePartners);
-      
+
       // Notify both users
-      console.log(`Emitting partner-found to current user (${socket.id}) and partner (${partner.id})`);
+      console.log(`Emitting partner-found to current user (${socket.id}) and partner (${partnerUser.socketId})`);
       socket.emit('partner-found', { partner: partnerUser, sessionId });
 
       // Get the partner's socket and emit directly
-      const partnerSocket = io.sockets.sockets.get(partner.id);
+      const partnerSocket = io.sockets.sockets.get(partnerUser.socketId);
       if (partnerSocket) {
         partnerSocket.emit('partner-found', { partner: currentUser, sessionId });
         console.log(`Successfully emitted to partner socket`);
       } else {
-        console.error(`Partner socket not found for id: ${partner.id}`);
+        console.error(`Partner socket not found for id: ${partnerUser.socketId}`);
       }
 
       // Join both to session room
@@ -319,7 +329,7 @@ io.on('connection', (socket) => {
 
   // Cancel search
   socket.on('cancel-search', () => {
-    const index = waitingQueue.findIndex(u => u.id === socket.id);
+    const index = waitingQueue.findIndex(u => u.socketId === socket.id);
     if (index > -1) {
       waitingQueue.splice(index, 1);
       socket.emit('search-cancelled');
@@ -381,16 +391,14 @@ io.on('connection', (socket) => {
         
         // Leave session room
         socket.leave(user.currentSession);
-        
+
         // Clean up session - update all users in session
         session.users.forEach(u => {
-          const sessionUser = users.get(u.id);
-          if (sessionUser) {
-            sessionUser.currentSession = null;
-          }
+          // u is the user object stored in session, update its state directly
+          u.currentSession = null;
           // Leave room for other user
-          const otherSocket = io.sockets.sockets.get(u.id);
-          if (otherSocket && u.id !== socket.id) {
+          const otherSocket = io.sockets.sockets.get(u.socketId);
+          if (otherSocket && u.socketId !== socket.id) {
             otherSocket.leave(user.currentSession);
           }
         });
@@ -449,10 +457,10 @@ io.on('connection', (socket) => {
   // Invite friend to session
   socket.on('invite-friend', (friendId) => {
     const currentUser = users.get(socket.id);
-    const friend = users.get(friendId);
-    
+    const friend = findUserByUserId(friendId);
+
     if (currentUser && friend && friend.isOnline && !friend.currentSession) {
-      io.to(friendId).emit('session-invite', {
+      io.to(friend.socketId).emit('session-invite', {
         from: currentUser,
         inviteId: uuidv4()
       });
@@ -462,28 +470,28 @@ io.on('connection', (socket) => {
   // Accept friend invitation
   socket.on('accept-invite', (inviteData) => {
     const currentUser = users.get(socket.id);
-    const inviter = users.get(inviteData.from.id);
-    
+    const inviter = findUserByUserId(inviteData.from.id);
+
     if (currentUser && inviter && !inviter.currentSession) {
       const sessionId = uuidv4();
-      
+
       const session = {
         id: sessionId,
         users: [currentUser, inviter],
         startTime: new Date(),
         isActive: true
       };
-      
+
       activeSessions.set(sessionId, session);
-      
+
       currentUser.currentSession = sessionId;
       inviter.currentSession = sessionId;
-      
+
       socket.emit('partner-found', { partner: inviter, sessionId });
-      io.to(inviter.id).emit('partner-found', { partner: currentUser, sessionId });
-      
+      io.to(inviter.socketId).emit('partner-found', { partner: currentUser, sessionId });
+
       socket.join(sessionId);
-      io.sockets.sockets.get(inviter.id)?.join(sessionId);
+      io.sockets.sockets.get(inviter.socketId)?.join(sessionId);
     }
   });
 
@@ -494,7 +502,7 @@ io.on('connection', (socket) => {
     const user = users.get(socket.id);
     if (user) {
       // Remove from waiting queue
-      const queueIndex = waitingQueue.findIndex(u => u.id === socket.id);
+      const queueIndex = waitingQueue.findIndex(u => u.socketId === socket.id);
       if (queueIndex > -1) {
         waitingQueue.splice(queueIndex, 1);
         console.log(`Removed ${user.name} from waiting queue`);
@@ -512,13 +520,11 @@ io.on('connection', (socket) => {
           
           // Clean up session - update all users in session
           session.users.forEach(u => {
-            const sessionUser = users.get(u.id);
-            if (sessionUser) {
-              sessionUser.currentSession = null;
-            }
+            // u is the user object stored in session, update its state directly
+            u.currentSession = null;
             // Leave room for other user
-            const otherSocket = io.sockets.sockets.get(u.id);
-            if (otherSocket && u.id !== socket.id) {
+            const otherSocket = io.sockets.sockets.get(u.socketId);
+            if (otherSocket && u.socketId !== socket.id) {
               otherSocket.leave(user.currentSession);
             }
           });
