@@ -188,8 +188,9 @@ function AppContentLegacy() {
 // DEMO MODE: Simple app without auth/Convex
 // eslint-disable-next-line no-unused-vars
 function AppContentDemo() {
+  // Generate a truly unique ID using timestamp + random number to prevent collisions
   const initialUser = {
-    id: 'demo_user_' + Date.now(),
+    id: 'demo_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     name: 'Demo User',
     focusStyle: 'Body Doubling',
     workType: 'Creative Work',
