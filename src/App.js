@@ -299,13 +299,11 @@ function AppContentDemo() {
     }));
   };
 
-  // Show setup screen if not completed
-  if (!isSetup) {
-    return <SimpleUserSetup onComplete={handleSetupComplete} />;
-  }
-
-  // Initialize socket connection for demo mode
+  // Initialize socket connection for demo mode (only when setup is complete)
   useEffect(() => {
+    // Don't initialize socket until setup is complete
+    if (!isSetup) return;
+
     // CRITICAL FIX: Create socket with autoConnect=false to prevent race condition
     // This ensures all event handlers are attached before connection occurs
     // Also use explicit WebSocket transport for reliability
@@ -364,8 +362,8 @@ function AppContentDemo() {
       // Set socket ready first
       setIsSocketReady(true);
       setSocket(newSocket);
-      // Now emit join event with demo user profile
-      // Include unique user ID so each user is treated separately
+      // Now emit join event with current user profile
+      // Use ref to get latest user state
       newSocket.emit('join', {
         userId: user.id,
         name: user.name,
@@ -407,7 +405,12 @@ function AppContentDemo() {
       newSocket.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - user properties are initial demo values
+  }, [isSetup]); // Run when setup completes
+
+  // Show setup screen if not completed
+  if (!isSetup) {
+    return <SimpleUserSetup onComplete={handleSetupComplete} />;
+  }
 
   // Show loading while socket is connecting
   if (!isSocketReady) {
