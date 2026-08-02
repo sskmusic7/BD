@@ -47,6 +47,7 @@ const BackgroundRenderer = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line no-unused-vars
 function AppContentLegacy() {
   const { currentBackground } = useBackground();
   const [socket, setSocket] = useState(null);
@@ -184,12 +185,98 @@ function AppContentLegacy() {
   );
 }
 
+// Simple username setup component for Omegle-style demo mode
+function SimpleUserSetup({ onComplete }) {
+  const { currentBackground } = useBackground();
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const savedName = localStorage.getItem('bd_username');
+    const savedToken = localStorage.getItem('bd_session_token');
+    if (savedName && savedToken) {
+      onComplete({ name: savedName, sessionToken: savedToken });
+    }
+  }, [onComplete]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (username.trim()) {
+      setLoading(true);
+      // Generate unique session token
+      const sessionToken = 'bd_token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      // Save to localStorage
+      localStorage.setItem('bd_username', username.trim());
+      localStorage.setItem('bd_session_token', sessionToken);
+      setLoading(false);
+      onComplete({ name: username.trim(), sessionToken });
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{
+      background: `url(${currentBackground}) no-repeat center center`,
+      backgroundSize: 'cover',
+      position: 'relative',
+      zIndex: 1
+    }}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md relative z-10">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome! Let's get started</h2>
+          <p className="text-gray-600 text-sm">Enter your name to start body doubling</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your name..."
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              autoFocus
+              maxLength={30}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!username.trim() || loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {loading ? 'Setting up...' : 'Start Body Doubling'}
+          </button>
+        </form>
+        <p className="text-xs text-gray-500 text-center mt-4">
+          Your session is saved locally. Come back anytime!
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // DEMO MODE: Simple app without auth/Convex
 // eslint-disable-next-line no-unused-vars
 function AppContentDemo() {
+  // State for user setup
+  const [isSetup, setIsSetup] = useState(false);
+  const [sessionToken, setSessionToken] = useState(null);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const savedName = localStorage.getItem('bd_username');
+    const savedToken = localStorage.getItem('bd_session_token');
+    if (savedName && savedToken) {
+      setIsSetup(true);
+      setSessionToken(savedToken);
+    }
+  }, []);
+
+  // Generate user from saved session or defaults
   const initialUser = {
-    id: 'demo_user_' + Date.now(),
-    name: 'Demo User',
+    id: sessionToken || ('demo_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)),
+    name: localStorage.getItem('bd_username') || 'Demo User',
     focusStyle: 'Body Doubling',
     workType: 'Creative Work',
     sessionLength: '25 minutes',
@@ -201,8 +288,22 @@ function AppContentDemo() {
   const [isSocketReady, setIsSocketReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // Track searching state at App level
 
-  // Initialize socket connection for demo mode
+  // Handle setup completion
+  const handleSetupComplete = ({ name, sessionToken: token }) => {
+    setIsSetup(true);
+    setSessionToken(token);
+    setUser(prev => ({
+      ...prev,
+      id: token,
+      name: name
+    }));
+  };
+
+  // Initialize socket connection for demo mode (only when setup is complete)
   useEffect(() => {
+    // Don't initialize socket until setup is complete
+    if (!isSetup) return;
+
     // CRITICAL FIX: Create socket with autoConnect=false to prevent race condition
     // This ensures all event handlers are attached before connection occurs
     // Also use explicit WebSocket transport for reliability
@@ -261,8 +362,10 @@ function AppContentDemo() {
       // Set socket ready first
       setIsSocketReady(true);
       setSocket(newSocket);
-      // Now emit join event with demo user profile
+      // Now emit join event with current user profile
+      // Use ref to get latest user state
       newSocket.emit('join', {
+        userId: user.id,
         name: user.name,
         focusStyle: user.focusStyle,
         workType: user.workType,
@@ -302,7 +405,12 @@ function AppContentDemo() {
       newSocket.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - user properties are initial demo values
+  }, [isSetup]); // Run when setup completes
+
+  // Show setup screen if not completed
+  if (!isSetup) {
+    return <SimpleUserSetup onComplete={handleSetupComplete} />;
+  }
 
   // Show loading while socket is connecting
   if (!isSocketReady) {
@@ -334,22 +442,24 @@ function AppContentDemo() {
 
   return (
     <BackgroundRenderer>
-      <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
-      <BackgroundSelector />
-      <Routes>
-        <Route path="/invite/:token" element={<InviteLanding />} />
-        {/* Add key to force remount when socket becomes ready */}
-        <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
-          <HomePage
-            socket={socket}
-            user={user}
-            isSearching={isSearching}
-            onSearchingChange={setIsSearching}
-          />
-        } />
-        <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Router>
+        <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
+        <BackgroundSelector />
+        <Routes>
+          <Route path="/invite/:token" element={<InviteLanding />} />
+          {/* Add key to force remount when socket becomes ready */}
+          <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
+            <HomePage
+              socket={socket}
+              user={user}
+              isSearching={isSearching}
+              onSearchingChange={setIsSearching}
+            />
+          } />
+          <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </BackgroundRenderer>
   );
 }
@@ -544,7 +654,7 @@ function AppAuthenticated({
 function App({ useConvexAuth }) {
   return (
     <BackgroundProvider>
-      {useConvexAuth ? <AppContentConvex /> : <AppContentLegacy />}
+      {useConvexAuth ? <AppContentConvex /> : <AppContentDemo />}
     </BackgroundProvider>
   );
 }
