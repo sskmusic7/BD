@@ -10,49 +10,67 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
-
-
+  const mediaPromiseRef = useRef(null);
 
   const initializeMedia = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      
-      setLocalStream(stream);
-      localStreamRef.current = stream;
-      
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-      
-      // Initially mute video, keep audio
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = false;
-      });
-      
-      return stream;
-    } catch (error) {
-      // Only log if it's not a permission denial (expected behavior)
-      if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
-        console.error('Error accessing media devices:', error);
-      }
-      // Try audio only if video fails
+    // Reuse the existing/in-flight stream instead of calling getUserMedia
+    // again — a second concurrent request for the same camera can fail
+    // (device busy) or hand back a stream that never reaches the peer
+    // connection, which is why video wouldn't come through.
+    if (localStreamRef.current) {
+      return localStreamRef.current;
+    }
+    if (mediaPromiseRef.current) {
+      return mediaPromiseRef.current;
+    }
+
+    mediaPromiseRef.current = (async () => {
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
           audio: true
         });
-        setLocalStream(audioStream);
-        localStreamRef.current = audioStream;
-        return audioStream;
-      } catch (audioError) {
-        // Only log if it's not a permission denial
-        if (audioError.name !== 'NotAllowedError' && audioError.name !== 'PermissionDeniedError') {
-          console.error('Error accessing audio:', audioError);
+
+        setLocalStream(stream);
+        localStreamRef.current = stream;
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
-        return null;
+
+        // Initially mute video, keep audio
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = false;
+        });
+
+        return stream;
+      } catch (error) {
+        // Only log if it's not a permission denial (expected behavior)
+        if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
+          console.error('Error accessing media devices:', error);
+        }
+        // Try audio only if video fails
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: true
+          });
+          setLocalStream(audioStream);
+          localStreamRef.current = audioStream;
+          return audioStream;
+        } catch (audioError) {
+          // Only log if it's not a permission denial
+          if (audioError.name !== 'NotAllowedError' && audioError.name !== 'PermissionDeniedError') {
+            console.error('Error accessing audio:', audioError);
+          }
+          return null;
+        }
       }
+    })();
+
+    try {
+      return await mediaPromiseRef.current;
+    } finally {
+      mediaPromiseRef.current = null;
     }
   }, []);
 
@@ -99,13 +117,16 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     const stream = await initializeMedia();
     if (!stream) return;
 
-    const peerConnection = createPeerConnection(stream);
-    
+    // Only the initiator creates a peer connection here and sends an offer.
+    // The other side's peer connection is created once, in handleOffer,
+    // when the real offer arrives — creating one here too would leave an
+    // orphaned connection and pull in a second, disconnected media stream.
     if (isInitiator) {
+      const peerConnection = createPeerConnection(stream);
       try {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        
+
         if (socket) {
           socket.emit('webrtc-offer', {
             sessionId,
