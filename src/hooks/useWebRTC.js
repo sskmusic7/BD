@@ -202,6 +202,15 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       socket.off('webrtc-offer', handleOffer);
       socket.off('webrtc-answer', handleAnswer);
       socket.off('webrtc-ice-candidate', handleIceCandidate);
+
+      // If this effect re-runs (e.g. React StrictMode's dev double-invoke,
+      // or any future dependency change), tear down the connection it
+      // created — otherwise a stale connection lingers and a later
+      // offer/answer can get routed to the wrong RTCPeerConnection.
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
     };
   }, [socket, sessionId, startCall, initializeMedia, createPeerConnection]);
 
