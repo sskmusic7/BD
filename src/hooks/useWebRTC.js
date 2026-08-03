@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const useWebRTC = (socket, sessionId, isInitiator) => {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   
   const localVideoRef = useRef(null);
@@ -37,11 +37,6 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-
-        // Initially mute video, keep audio
-        stream.getVideoTracks().forEach(track => {
-          track.enabled = false;
-        });
 
         return stream;
       } catch (error) {
