@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as friends from "../friends.js";
+import type * as googleAuth from "../googleAuth.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as testAuthConfig from "../testAuthConfig.js";
@@ -24,6 +25,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   friends: typeof friends;
+  googleAuth: typeof googleAuth;
   http: typeof http;
   invites: typeof invites;
   testAuthConfig: typeof testAuthConfig;

@@ -1,1 +1,22 @@
-{}
+{
+  "LkKlqLDeHfP7V9Y7AAAF": {
+    "id": "LkKlqLDeHfP7V9Y7AAAF",
+    "name": "Smoke1",
+    "focusStyle": "Body Doubling",
+    "workType": "Creative Work",
+    "sessionLength": "25 minutes",
+    "adhdType": "Inattentive",
+    "isOnline": false,
+    "currentSession": null
+  },
+  "qgCWL7jX8uAWYO91AAAH": {
+    "id": "qgCWL7jX8uAWYO91AAAH",
+    "name": "Smoke2",
+    "focusStyle": "Body Doubling",
+    "workType": "Creative Work",
+    "sessionLength": "25 minutes",
+    "adhdType": "Inattentive",
+    "isOnline": false,
+    "currentSession": null
+  }
+}
