@@ -65,6 +65,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     remoteStream,
     isVideoEnabled,
     isAudioEnabled,
+    mediaError,
     toggleVideo,
     toggleAudio,
     cleanup
@@ -378,6 +379,14 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                       </div>
                     </div>
                   )}
+                  {mediaError && (
+                    <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center p-4">
+                      <div className="text-white text-center text-sm">
+                        <VideoOff className="w-6 h-6 mx-auto mb-2 text-red-400" />
+                        <p>{mediaError}</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="absolute top-2 left-2 bg-black/50 rounded px-2 py-1">
                     <span className="text-white text-xs font-medium">You</span>
                   </div>
@@ -399,28 +408,28 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                 <button
                   onClick={toggleVideo}
                   className={`p-3 rounded-full transition-colors ${
-                    isVideoEnabled 
-                      ? 'bg-green-500 hover:bg-green-600' 
+                    isVideoEnabled
+                      ? 'bg-green-500 hover:bg-green-600'
                       : 'bg-red-500 hover:bg-red-600'
                   }`}
                   title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
                 >
-                  {isVideoEnabled ? 
-                    <Video className="w-5 h-5 text-white" /> : 
+                  {isVideoEnabled ?
+                    <Video className="w-5 h-5 text-white" /> :
                     <VideoOff className="w-5 h-5 text-white" />
                   }
                 </button>
                 <button
                   onClick={toggleAudio}
                   className={`p-3 rounded-full transition-colors ${
-                    isAudioEnabled 
-                      ? 'bg-green-500 hover:bg-green-600' 
+                    isAudioEnabled
+                      ? 'bg-green-500 hover:bg-green-600'
                       : 'bg-red-500 hover:bg-red-600'
                   }`}
                   title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
                 >
-                  {isAudioEnabled ? 
-                    <Mic className="w-5 h-5 text-white" /> : 
+                  {isAudioEnabled ?
+                    <Mic className="w-5 h-5 text-white" /> :
                     <MicOff className="w-5 h-5 text-white" />
                   }
                 </button>
@@ -543,6 +552,14 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                             <span className="font-bold text-xl">{user.name[0].toUpperCase()}</span>
                           </div>
                           <p className="font-medium">{user.name} (You)</p>
+                        </div>
+                      </div>
+                    )}
+                    {mediaError && (
+                      <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center p-4">
+                        <div className="text-white text-center text-sm">
+                          <VideoOff className="w-6 h-6 mx-auto mb-2 text-red-400" />
+                          <p>{mediaError}</p>
                         </div>
                       </div>
                     )}
@@ -751,6 +768,14 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                           <span className="font-bold text-xl">{user.name[0].toUpperCase()}</span>
                         </div>
                         <p className="font-medium">{user.name} (You)</p>
+                      </div>
+                    </div>
+                  )}
+                  {mediaError && (
+                    <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center p-4">
+                      <div className="text-white text-center text-sm">
+                        <VideoOff className="w-6 h-6 mx-auto mb-2 text-red-400" />
+                        <p>{mediaError}</p>
                       </div>
                     </div>
                   )}

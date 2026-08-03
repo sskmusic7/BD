@@ -5,6 +5,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const [remoteStream, setRemoteStream] = useState(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [mediaError, setMediaError] = useState(null);
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -33,6 +34,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
 
         setLocalStream(stream);
         localStreamRef.current = stream;
+        setMediaError(null);
 
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
@@ -40,10 +42,11 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
 
         return stream;
       } catch (error) {
-        // Only log if it's not a permission denial (expected behavior)
-        if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
-          console.error('Error accessing media devices:', error);
-        }
+        // Always log — a silently-swallowed permission denial here is
+        // exactly what makes "camera won't connect" impossible to diagnose.
+        console.error('Error accessing camera/mic:', error.name, error.message);
+        const isDenied = error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError';
+
         // Try audio only if video fails
         try {
           const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -51,12 +54,16 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
           });
           setLocalStream(audioStream);
           localStreamRef.current = audioStream;
+          setMediaError(isDenied
+            ? 'Camera access is blocked for this site. Check your browser\'s site permissions and reload.'
+            : `Camera unavailable (${error.name}). It may be in use by another app.`);
           return audioStream;
         } catch (audioError) {
-          // Only log if it's not a permission denial
-          if (audioError.name !== 'NotAllowedError' && audioError.name !== 'PermissionDeniedError') {
-            console.error('Error accessing audio:', audioError);
-          }
+          console.error('Error accessing audio:', audioError.name, audioError.message);
+          const audioAlsoDenied = audioError.name === 'NotAllowedError' || audioError.name === 'PermissionDeniedError';
+          setMediaError(isDenied && audioAlsoDenied
+            ? 'Camera and microphone access are blocked for this site. Check your browser\'s site permissions and reload.'
+            : 'Could not access camera or microphone.');
           return null;
         }
       }
@@ -252,6 +259,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     remoteStream,
     isVideoEnabled,
     isAudioEnabled,
+    mediaError,
     toggleVideo,
     toggleAudio,
     cleanup
