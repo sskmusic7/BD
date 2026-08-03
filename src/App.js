@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import config from './config/config';
@@ -290,6 +290,16 @@ function AppContentDemo() {
   const [isSocketReady, setIsSocketReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // Track searching state at App level
 
+  // Tracks the live session id for handleConnect's closure below. A real
+  // page reload resets currentSession (and this ref) back to null, while a
+  // transport-level reconnect (same JS session, socket.io auto-reconnecting)
+  // leaves it set — that distinction is what tells the server whether this
+  // 'join' is resuming an in-progress call or starting fresh.
+  const currentSessionRef = useRef(null);
+  useEffect(() => {
+    currentSessionRef.current = currentSession;
+  }, [currentSession]);
+
   // Handle setup completion
   const handleSetupComplete = ({ name, sessionToken: token }) => {
     setIsSetup(true);
@@ -372,7 +382,10 @@ function AppContentDemo() {
         focusStyle: user.focusStyle,
         workType: user.workType,
         sessionLength: user.sessionLength,
-        adhdType: user.adhdType
+        adhdType: user.adhdType,
+        // Only set on a transport-level reconnect (same JS session) — null
+        // on a real page load, so the server can tell those apart.
+        resumeSessionId: currentSessionRef.current?.id || null
       });
     };
 

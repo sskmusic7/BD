@@ -178,22 +178,34 @@ io.on('connection', (socket) => {
     }
 
     if (existingUser && oldSocketId) {
-      // If a disconnect-teardown is pending for this user, cancel it —
-      // they're reconnecting (transport blip), not leaving.
-      const pending = pendingSessionDisconnects.get(existingUser.id);
-      if (pending) {
-        clearTimeout(pending.timeout);
-        pendingSessionDisconnects.delete(existingUser.id);
-      }
-
-      const liveSession = existingUser.currentSession
+      // Only reattach to the old session if the CLIENT explicitly claims to
+      // still be in it via resumeSessionId. That value only survives a
+      // transport-level reconnect (same JS session, socket.io reconnecting
+      // on its own) — a real page reload resets the client's session state
+      // to null, so it can never send a stale resumeSessionId. Relying on
+      // server-side state alone (e.g. "is there a pending disconnect
+      // timer?") can't tell a genuine blip apart from a deliberate reload
+      // shortly after a session ended, which was silently resuming stale
+      // sessions and looked like an instant, unexplained "session ended".
+      const liveSession = (userData.resumeSessionId && userData.resumeSessionId === existingUser.currentSession)
         ? activeSessions.get(existingUser.currentSession)
         : null;
 
       if (liveSession) {
-        // Session is still active — reattach this socket to it instead of
-        // tearing it down, and refresh the stale socketId the session
-        // stores for this user (used by end-session/disconnect cleanup).
+        // Genuinely resuming — safe to cancel the pending teardown timer
+        // now. (Left alone otherwise: if this ISN'T a resume, the timer
+        // must still fire later to clean up the session and notify the
+        // actual partner — cancelling it unconditionally would leave that
+        // partner stuck in a dead session forever.)
+        const pending = pendingSessionDisconnects.get(existingUser.id);
+        if (pending) {
+          clearTimeout(pending.timeout);
+          pendingSessionDisconnects.delete(existingUser.id);
+        }
+
+        // Reattach this socket to it instead of tearing it down, and
+        // refresh the stale socketId the session stores for this user
+        // (used by end-session/disconnect cleanup).
         socket.join(existingUser.currentSession);
         liveSession.users.forEach(u => {
           if (u.id === existingUser.id) {
@@ -202,7 +214,9 @@ io.on('connection', (socket) => {
         });
         console.log('User reconnected into live session:', existingUser.name, existingUser.currentSession);
       } else if (existingUser.currentSession) {
-        // Stale reference with no matching session left — clear it.
+        // Not resuming — this user is free to start fresh immediately.
+        // Note: a pending timer for the OLD session (if any) is deliberately
+        // left running so the real partner still gets cleaned up/notified.
         existingUser.currentSession = null;
       }
 
@@ -536,7 +550,12 @@ io.on('connection', (socket) => {
           if (session) {
             io.to(sessionId).emit('partner-disconnected');
             session.users.forEach(u => {
-              u.currentSession = null;
+              // Only clear it if it's still THIS session — if the user
+              // already reconnected and matched into a new one during the
+              // grace window, this stale timer must not wipe that out.
+              if (u.currentSession === sessionId) {
+                u.currentSession = null;
+              }
               const otherSocket = io.sockets.sockets.get(u.socketId);
               if (otherSocket) {
                 otherSocket.leave(sessionId);
