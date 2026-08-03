@@ -123,6 +123,15 @@ const waitingQueue = [];
 const activeSessions = new Map();
 const friendships = loadFriendships();
 
+// Grace period (ms) before a disconnected user's active session is torn
+// down. Socket.IO reconnects (mobile network blips, tab backgrounding,
+// transport upgrades) fire 'disconnect' on the old socket even though the
+// client reconnects moments later — without this window, every such blip
+// during a call kills the session and looks like "partner disconnected".
+const DISCONNECT_GRACE_MS = 10000;
+// Keyed by stable user id (userData.userId), value: { timeout, sessionId }
+const pendingSessionDisconnects = new Map();
+
 // Helper: find a user by their userId (since users Map is keyed by socketId)
 function findUserByUserId(userId) {
   for (const user of users.values()) {
@@ -169,39 +178,46 @@ io.on('connection', (socket) => {
     }
 
     if (existingUser && oldSocketId) {
-      // Clean up old session if user had one
-      if (existingUser.currentSession) {
-        const oldSession = activeSessions.get(existingUser.currentSession);
-        if (oldSession) {
-          // Remove old socket from room
-          const oldSocket = io.sockets.sockets.get(oldSocketId);
-          if (oldSocket) {
-            oldSocket.leave(existingUser.currentSession);
-            oldSocket.to(existingUser.currentSession).emit('partner-disconnected');
-          }
-          // Clean up session
-          oldSession.users.forEach(u => {
-            if (u.id === oldSocketId) {
-              u.currentSession = null;
-            }
-          });
-          activeSessions.delete(existingUser.currentSession);
-        }
+      // If a disconnect-teardown is pending for this user, cancel it —
+      // they're reconnecting (transport blip), not leaving.
+      const pending = pendingSessionDisconnects.get(existingUser.id);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        pendingSessionDisconnects.delete(existingUser.id);
       }
-      
+
+      const liveSession = existingUser.currentSession
+        ? activeSessions.get(existingUser.currentSession)
+        : null;
+
+      if (liveSession) {
+        // Session is still active — reattach this socket to it instead of
+        // tearing it down, and refresh the stale socketId the session
+        // stores for this user (used by end-session/disconnect cleanup).
+        socket.join(existingUser.currentSession);
+        liveSession.users.forEach(u => {
+          if (u.id === existingUser.id) {
+            u.socketId = socket.id;
+          }
+        });
+        console.log('User reconnected into live session:', existingUser.name, existingUser.currentSession);
+      } else if (existingUser.currentSession) {
+        // Stale reference with no matching session left — clear it.
+        existingUser.currentSession = null;
+      }
+
       // Remove from waiting queue if present
       const queueIndex = waitingQueue.findIndex(u => u.socketId === oldSocketId);
       if (queueIndex > -1) {
         waitingQueue.splice(queueIndex, 1);
       }
-      
+
       // Remove old user entry
       users.delete(oldSocketId);
-      
+
       // Update existing user with new socket ID
       existingUser.socketId = socket.id;
       existingUser.isOnline = true;
-      existingUser.currentSession = null;
       users.set(socket.id, existingUser);
       socket.emit('joined', { userId: existingUser.id, user: existingUser });
       console.log('User reconnected:', existingUser.name, 'from', oldSocketId, 'to', socket.id);
@@ -508,36 +524,35 @@ io.on('connection', (socket) => {
         console.log(`Removed ${user.name} from waiting queue`);
       }
       
-      // End active session
+      // Don't tear down an active session immediately — the client may be
+      // mid-reconnect (Socket.IO transport blip, common on mobile). Give it
+      // a grace window; the 'join' handler cancels this if the same user
+      // (matched by stable userId) reconnects before it fires.
       if (user.currentSession) {
-        const session = activeSessions.get(user.currentSession);
-        if (session) {
-          // Notify partner
-          socket.to(user.currentSession).emit('partner-disconnected');
-          
-          // Leave session room
-          socket.leave(user.currentSession);
-          
-          // Clean up session - update all users in session
-          session.users.forEach(u => {
-            // u is the user object stored in session, update its state directly
-            u.currentSession = null;
-            // Leave room for other user
-            const otherSocket = io.sockets.sockets.get(u.socketId);
-            if (otherSocket && u.socketId !== socket.id) {
-              otherSocket.leave(user.currentSession);
-            }
-          });
-          
-          activeSessions.delete(user.currentSession);
-          console.log(`Session ${session.id} cleaned up due to disconnect`);
-        }
+        const sessionId = user.currentSession;
+        const timeout = setTimeout(() => {
+          pendingSessionDisconnects.delete(user.id);
+          const session = activeSessions.get(sessionId);
+          if (session) {
+            io.to(sessionId).emit('partner-disconnected');
+            session.users.forEach(u => {
+              u.currentSession = null;
+              const otherSocket = io.sockets.sockets.get(u.socketId);
+              if (otherSocket) {
+                otherSocket.leave(sessionId);
+              }
+            });
+            activeSessions.delete(sessionId);
+            console.log(`Session ${sessionId} cleaned up after disconnect grace period`);
+          }
+        }, DISCONNECT_GRACE_MS);
+
+        pendingSessionDisconnects.set(user.id, { timeout, sessionId });
       }
-      
+
       // Mark user as offline but keep in users map for reconnection
       user.isOnline = false;
-      user.currentSession = null;
-      
+
       // Save users after modification
       saveUsers(users);
       
