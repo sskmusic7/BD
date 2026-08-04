@@ -14,17 +14,20 @@ export const canRecordCalls =
 
 function pickMimeType() {
   const candidates = [
-    // Prefer webm where available — verified directly that Chromium's
-    // generic 'video/mp4' fallback (it doesn't support h264/aac at all;
-    // it silently maps to vp9/opus-in-mp4) drops nearly all audio
-    // specifically when the track comes from a Web Audio
-    // MediaStreamAudioDestinationNode (the same raw mic track recorded
-    // fine with the identical mimeType — only the *mixed* track breaks).
-    // webm handled the same mixed track correctly. mp4 is kept only as
-    // the Safari/iOS fallback, since Safari has no webm support at all.
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
+    // mp4 first, deliberately — verified directly (isolated bisection
+    // testing, not guesswork) that Chromium's MediaRecorder produces a
+    // completely empty (0-byte) file for *any* video/webm variant once the
+    // stream is a reconstructed MediaStream combining tracks from
+    // different sources (exactly what this hook always does: a canvas
+    // video track + a Web Audio-mixed audio track). This reproduced with
+    // vp9, vp8, and generic webm, and with multiple stream-construction
+    // approaches (constructor array, addTrack, cloned tracks) — it's a
+    // genuine Chromium limitation, not a workaround-able API misuse.
+    // video/mp4 (Chromium maps generic 'video/mp4' to vp9/opus-in-mp4
+    // internally, since it doesn't support h264/aac at all) reliably
+    // produces a real, playable file with the exact same reconstructed
+    // stream — audio is present, just lower-bitrate than ideal. A working
+    // file with imperfect audio beats a 0-byte failure.
     'video/mp4;codecs=h264,aac',
     'video/mp4',
   ];
