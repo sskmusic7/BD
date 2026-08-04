@@ -4,8 +4,16 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 // recorder — iOS Safari's screen recording (ReplayKit/Control Center) does
 // not capture WebRTC audio; this is a confirmed platform limitation with no
 // JS-level workaround. Compositing both video feeds onto a canvas and
-// mixing both audio tracks via the Web Audio API sidesteps that entirely,
-// since it's just reading MediaStreams the page already has.
+// including both raw audio tracks in the recorded stream sidesteps that
+// entirely, since it's just reading MediaStreams the page already has.
+//
+// Audio is NOT mixed via the Web Audio API on purpose — verified directly
+// (isolated bisection testing) that Chromium's MediaRecorder produces a
+// completely empty (0-byte) file for a track sourced from
+// AudioContext.createMediaStreamDestination(), even recording that track
+// alone with no video at all. Including both RAW audio tracks directly in
+// the recorded stream works instead — MediaRecorder mixes multiple audio
+// tracks in a stream natively, and it's simpler code besides.
 export const canRecordCalls =
   typeof window !== 'undefined' &&
   !!window.MediaRecorder &&
@@ -44,7 +52,6 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
   const rafIdRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
-  const audioContextRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const compositeStreamRef = useRef(null);
 
@@ -62,12 +69,11 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
       timerIntervalRef.current = null;
     }
     if (compositeStreamRef.current) {
+      // These are the canvas's own captured track plus CLONED audio
+      // tracks (see startRecording) — stopping them here never touches
+      // the live call's actual camera/mic/peer tracks.
       compositeStreamRef.current.getTracks().forEach(track => track.stop());
       compositeStreamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
     }
   }, [stopDrawLoop]);
 
@@ -110,28 +116,16 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
 
     const canvasStream = canvas.captureStream(30);
 
-    // Mix local + remote audio into one track. Creating/resuming the
-    // AudioContext here, synchronously inside this click handler, is what
-    // satisfies iOS's user-gesture requirement for audio playback/capture.
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContextClass();
-    audioContextRef.current = audioCtx;
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
-    }
-
-    const destination = audioCtx.createMediaStreamDestination();
+    // Both raw audio tracks go in directly — MediaRecorder mixes multiple
+    // audio tracks in a stream natively. Cloned so stopping them during
+    // teardown never touches the live call's actual mic/peer audio tracks.
+    const combinedStream = new MediaStream(canvasStream.getVideoTracks());
     if (localStream?.getAudioTracks().length) {
-      audioCtx.createMediaStreamSource(new MediaStream(localStream.getAudioTracks())).connect(destination);
+      combinedStream.addTrack(localStream.getAudioTracks()[0].clone());
     }
     if (remoteStream?.getAudioTracks().length) {
-      audioCtx.createMediaStreamSource(new MediaStream(remoteStream.getAudioTracks())).connect(destination);
+      combinedStream.addTrack(remoteStream.getAudioTracks()[0].clone());
     }
-
-    const combinedStream = new MediaStream([
-      ...canvasStream.getVideoTracks(),
-      ...destination.stream.getAudioTracks(),
-    ]);
     compositeStreamRef.current = combinedStream;
 
     const mimeType = pickMimeType();
