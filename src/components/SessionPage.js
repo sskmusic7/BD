@@ -14,7 +14,9 @@ import {
   Pause,
   RotateCcw,
   Maximize2,
-  LayoutGrid
+  LayoutGrid,
+  ScreenShare,
+  ScreenShareOff
 } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import { useBackground } from '../context/BackgroundContext';
@@ -66,10 +68,13 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     isVideoEnabled,
     isAudioEnabled,
     mediaError,
+    isScreenSharing,
     toggleVideo,
     toggleAudio,
+    toggleScreenShare,
     cleanup
   } = useWebRTC(socket, session.id, user.id < session.partner.id);
+  const canScreenShare = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
 
   useEffect(() => {
     if (socket) {
@@ -433,6 +438,22 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                     <MicOff className="w-5 h-5 text-white" />
                   }
                 </button>
+                {canScreenShare && (
+                  <button
+                    onClick={toggleScreenShare}
+                    className={`p-3 rounded-full transition-colors ${
+                      isScreenSharing
+                        ? 'bg-blue-500 hover:bg-blue-600'
+                        : 'bg-white/20 hover:bg-white/30'
+                    }`}
+                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                  >
+                    {isScreenSharing ?
+                      <ScreenShareOff className="w-5 h-5 text-white" /> :
+                      <ScreenShare className="w-5 h-5 text-white" />
+                    }
+                  </button>
+                )}
                 <button
                   onClick={addFriend}
                   className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
@@ -604,11 +625,27 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                     }`}
                     title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
                   >
-                    {isAudioEnabled ? 
-                      <Mic className="w-5 h-5 text-white" /> : 
+                    {isAudioEnabled ?
+                      <Mic className="w-5 h-5 text-white" /> :
                       <MicOff className="w-5 h-5 text-white" />
                     }
                   </button>
+                  {canScreenShare && (
+                    <button
+                      onClick={toggleScreenShare}
+                      className={`p-3 rounded-full transition-colors ${
+                        isScreenSharing
+                          ? 'bg-blue-500 hover:bg-blue-600'
+                          : 'bg-white/20 hover:bg-white/30'
+                      }`}
+                      title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                    >
+                      {isScreenSharing ?
+                        <ScreenShareOff className="w-5 h-5 text-white" /> :
+                        <ScreenShare className="w-5 h-5 text-white" />
+                      }
+                    </button>
+                  )}
                   <button
                     onClick={addFriend}
                     className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
@@ -843,11 +880,27 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                   }`}
                   title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
                 >
-                  {isAudioEnabled ? 
-                    <Mic className="w-5 h-5 text-white" /> : 
+                  {isAudioEnabled ?
+                    <Mic className="w-5 h-5 text-white" /> :
                     <MicOff className="w-5 h-5 text-white" />
                   }
                 </button>
+                {canScreenShare && (
+                  <button
+                    onClick={toggleScreenShare}
+                    className={`p-3 rounded-full transition-colors ${
+                      isScreenSharing
+                        ? 'bg-blue-500 hover:bg-blue-600'
+                        : 'bg-white/20 hover:bg-white/30'
+                    }`}
+                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                  >
+                    {isScreenSharing ?
+                      <ScreenShareOff className="w-5 h-5 text-white" /> :
+                      <ScreenShare className="w-5 h-5 text-white" />
+                    }
+                  </button>
+                )}
                 <button
                   onClick={() => setShowChat(!showChat)}
                   className="p-3 rounded-full bg-blue-500 hover:bg-blue-600 transition-colors lg:hidden"

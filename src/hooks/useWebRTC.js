@@ -6,12 +6,14 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [mediaError, setMediaError] = useState(null);
-  
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const mediaPromiseRef = useRef(null);
+  const screenStreamRef = useRef(null);
 
   const initializeMedia = useCallback(async () => {
     // Reuse the existing/in-flight stream instead of calling getUserMedia
@@ -141,10 +143,13 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, [initializeMedia, createPeerConnection, isInitiator, socket, sessionId]);
 
-  // Reassign srcObject when video refs change (e.g., layout changes)
+  // Reassign srcObject when video refs change (e.g., layout changes).
+  // Shows the screen share instead of the camera while one is active.
   useEffect(() => {
-    if (localVideoRef.current && localStreamRef.current) {
-      localVideoRef.current.srcObject = localStreamRef.current;
+    if (!localVideoRef.current) return;
+    const desiredStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
+    if (desiredStream) {
+      localVideoRef.current.srcObject = desiredStream;
     }
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -241,7 +246,62 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, []);
 
+  // Swaps the video RTCRtpSender's track back to the camera. Reused both for
+  // the button and for the browser's native "Stop sharing" control.
+  const stopScreenShare = useCallback(() => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    const videoSender = peerConnectionRef.current?.getSenders().find(s => s.track?.kind === 'video');
+    if (cameraTrack && videoSender) {
+      videoSender.replaceTrack(cameraTrack).catch(err => console.error('Error restoring camera track:', err));
+    }
+
+    setIsScreenSharing(false);
+  }, []);
+
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing) {
+      stopScreenShare();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setMediaError('Screen sharing isn\'t supported in this browser.');
+      return;
+    }
+
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      screenStreamRef.current = screenStream;
+
+      const videoSender = peerConnectionRef.current?.getSenders().find(s => s.track?.kind === 'video');
+      if (videoSender) {
+        await videoSender.replaceTrack(screenTrack);
+      }
+
+      // The browser's own "Stop sharing" bar ends the track directly —
+      // this is the only reliable way to catch that and revert to camera.
+      screenTrack.onended = () => stopScreenShare();
+
+      setIsScreenSharing(true);
+    } catch (error) {
+      // User cancelling the picker throws NotAllowedError — not a real error.
+      if (error.name !== 'NotAllowedError') {
+        console.error('Error starting screen share:', error.name, error.message);
+      }
+    }
+  }, [isScreenSharing, stopScreenShare]);
+
   const cleanup = useCallback(() => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
     }
@@ -260,8 +320,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     isVideoEnabled,
     isAudioEnabled,
     mediaError,
+    isScreenSharing,
     toggleVideo,
     toggleAudio,
+    toggleScreenShare,
     cleanup
   };
 };
