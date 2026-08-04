@@ -369,6 +369,31 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
           </div>
         </div>
 
+        {/* Recording ready — shown mid-call too, not just after the call
+            ends, since stopping a recording without ending the session
+            should still let you actually get the file. */}
+        {downloadUrl && (
+          <div className="bg-blue-500/90 backdrop-blur-md rounded-2xl p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <span className="text-white font-medium">Your recording is ready.</span>
+            <div className="flex items-center gap-3">
+              <a
+                href={downloadUrl}
+                download={downloadFilename}
+                className="inline-flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-semibold transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </a>
+              <button
+                onClick={clearDownload}
+                className="text-white/80 hover:text-white text-sm font-medium"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Layout Toggle Button */}
         <div className="flex justify-end mb-4 z-50 relative">
           <div className="bg-black/70 backdrop-blur-md rounded-lg p-2 flex space-x-2 border-2 border-white/40 shadow-2xl">
