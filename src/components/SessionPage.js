@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Video, 
   VideoOff, 
@@ -16,9 +16,14 @@ import {
   Maximize2,
   LayoutGrid,
   ScreenShare,
-  ScreenShareOff
+  ScreenShareOff,
+  Loader2,
+  Circle,
+  Square,
+  Download
 } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
+import useCallRecorder, { canRecordCalls } from '../hooks/useCallRecorder';
 import { useBackground } from '../context/BackgroundContext';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
@@ -34,6 +39,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   const [newMessage, setNewMessage] = useState('');
   const [goals, setGoals] = useState({ user: '', partner: '' });
   const [newGoal, setNewGoal] = useState('');
+  const [callEnded, setCallEnded] = useState(false);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -76,6 +82,37 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   } = useWebRTC(socket, session.id, user.id < session.partner.id);
   const canScreenShare = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
 
+  const {
+    isRecording,
+    recordingSeconds,
+    downloadUrl,
+    downloadFilename,
+    error: recordingError,
+    startRecording,
+    stopRecording,
+    clearDownload
+  } = useCallRecorder({ localVideoRef, remoteVideoRef, localStream, remoteStream });
+
+  const formatRecordingTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // If a recording is in progress when the call ends, stop it and hold off
+  // navigating away until the user has had a chance to grab the file —
+  // otherwise the recording finishes processing after SessionPage has
+  // already unmounted and there's nowhere to show the download.
+  const finishSession = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+      setCallEnded(true);
+    } else {
+      cleanup();
+      onEndSession();
+    }
+  }, [isRecording, stopRecording, cleanup, onEndSession]);
+
   useEffect(() => {
     if (socket) {
       socket.on('session-message', (message) => {
@@ -101,14 +138,12 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
       socket.on('session-ended', () => {
         console.log('Session ended by partner');
-        cleanup();
-        onEndSession();
+        finishSession();
       });
 
       socket.on('partner-disconnected', () => {
         console.log('Partner disconnected');
-        cleanup();
-        onEndSession();
+        finishSession();
       });
 
       return () => {
@@ -120,7 +155,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
         socket.off('partner-disconnected');
       };
     }
-  }, [socket, user.id, onEndSession, cleanup]);
+  }, [socket, user.id, onEndSession, cleanup, finishSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,14 +221,21 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     }
   };
 
+  // Called once the user has seen the post-call download prompt (or
+  // dismissed it) — actually navigates away.
+  const finalizeAndLeave = () => {
+    clearDownload();
+    cleanup();
+    onEndSession();
+  };
+
   const endSession = () => {
-    cleanup(); // Clean up WebRTC resources
     if (socket) {
       socket.emit('end-session');
     }
     // Small delay to ensure server processes the event
     setTimeout(() => {
-      onEndSession();
+      finishSession();
     }, 100);
   };
 
@@ -218,6 +260,53 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     minHeight: '100vh'
   };
 
+  // The call has ended (either party) with a recording in flight — hold
+  // here until it finishes processing so there's actually a chance to grab
+  // it, rather than losing it the instant this page would otherwise unmount.
+  if (callEnded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={backgroundStyle}>
+        <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Call ended</h2>
+          {downloadUrl ? (
+            <>
+              <p className="text-gray-600 mb-6">Your recording is ready.</p>
+              <a
+                href={downloadUrl}
+                download={downloadFilename}
+                className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold mb-4"
+              >
+                <Download className="w-5 h-5" />
+                Download Recording
+              </a>
+              <button
+                onClick={finalizeAndLeave}
+                className="block w-full text-gray-500 hover:text-gray-700 font-medium mt-2"
+              >
+                Continue without downloading
+              </button>
+            </>
+          ) : recordingError ? (
+            <>
+              <p className="text-gray-600 mb-6">{recordingError}</p>
+              <button
+                onClick={finalizeAndLeave}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold"
+              >
+                Continue
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-gray-600 mb-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Finishing recording...</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen" style={backgroundStyle}>
       <div className="max-w-6xl mx-auto p-4">
@@ -238,6 +327,12 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
             
             {/* Timer */}
             <div className="flex items-center space-x-4">
+              {isRecording && (
+                <div className="flex items-center space-x-2 bg-red-600/90 rounded-lg px-3 py-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+                  <span className="text-white font-mono text-sm">{formatRecordingTime(recordingSeconds)}</span>
+                </div>
+              )}
               <div className="bg-white/20 rounded-lg px-4 py-2">
                 <div className="flex items-center space-x-2">
                   <Clock className="w-5 h-5 text-white" />
@@ -347,6 +442,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                           <span className="font-bold text-xl">{session.partner.name[0].toUpperCase()}</span>
                         </div>
                         <p className="font-medium">{session.partner.name}</p>
+                        <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Connecting...</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -454,6 +553,22 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                     }
                   </button>
                 )}
+                {canRecordCalls && (
+                  <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`p-3 rounded-full transition-colors ${
+                      isRecording
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : 'bg-white/20 hover:bg-white/30'
+                    }`}
+                    title={isRecording ? 'Stop recording' : 'Record call'}
+                  >
+                    {isRecording ?
+                      <Square className="w-5 h-5 text-white" /> :
+                      <Circle className="w-5 h-5 text-white" />
+                    }
+                  </button>
+                )}
                 <button
                   onClick={addFriend}
                   className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
@@ -539,6 +654,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                             <span className="font-bold text-xl">{session.partner.name[0].toUpperCase()}</span>
                           </div>
                           <p className="font-medium">{session.partner.name}</p>
+                          <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Connecting...</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -643,6 +762,22 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                       {isScreenSharing ?
                         <ScreenShareOff className="w-5 h-5 text-white" /> :
                         <ScreenShare className="w-5 h-5 text-white" />
+                      }
+                    </button>
+                  )}
+                  {canRecordCalls && (
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-3 rounded-full transition-colors ${
+                        isRecording
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-white/20 hover:bg-white/30'
+                      }`}
+                      title={isRecording ? 'Stop recording' : 'Record call'}
+                    >
+                      {isRecording ?
+                        <Square className="w-5 h-5 text-white" /> :
+                        <Circle className="w-5 h-5 text-white" />
                       }
                     </button>
                   )}
@@ -846,6 +981,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                           <span className="font-bold text-xl">{session.partner.name[0].toUpperCase()}</span>
                         </div>
                         <p className="font-medium">{session.partner.name}</p>
+                        <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Connecting...</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -898,6 +1037,22 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                     {isScreenSharing ?
                       <ScreenShareOff className="w-5 h-5 text-white" /> :
                       <ScreenShare className="w-5 h-5 text-white" />
+                    }
+                  </button>
+                )}
+                {canRecordCalls && (
+                  <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`p-3 rounded-full transition-colors ${
+                      isRecording
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : 'bg-white/20 hover:bg-white/30'
+                    }`}
+                    title={isRecording ? 'Stop recording' : 'Record call'}
+                  >
+                    {isRecording ?
+                      <Square className="w-5 h-5 text-white" /> :
+                      <Circle className="w-5 h-5 text-white" />
                     }
                   </button>
                 )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Users, Clock, Brain, Heart, Zap } from 'lucide-react';
 import config from '../config/config';
 import { useBackground } from '../context/BackgroundContext';
+import { startSearchingLoop, stopSearchingLoop } from '../utils/sounds';
 
 const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () => {} }) => {
   const { currentBackground } = useBackground();
@@ -18,6 +19,15 @@ const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () =>
     // to ensure they're attached before HomePage renders
     // This prevents race conditions where events are missed
   }, [socket]);
+
+  useEffect(() => {
+    if (isSearching) {
+      startSearchingLoop();
+    } else {
+      stopSearchingLoop();
+    }
+    return () => stopSearchingLoop();
+  }, [isSearching]);
 
   const handleFindPartner = () => {
     console.log('HomePage: Clicked Find a Partner, socket =', socket ? socket.id : 'null');
@@ -106,8 +116,11 @@ const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () =>
             </div>
           ) : (
             <div className="text-center">
-              <div className="animate-pulse-slow mb-4">
-                <Users className="w-16 h-16 text-blue-500 mx-auto" />
+              <div className="relative w-16 h-16 mx-auto mb-4">
+                <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-40"></div>
+                <div className="relative animate-pulse-slow">
+                  <Users className="w-16 h-16 text-blue-500" />
+                </div>
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Finding Your Partner...</h2>
               <p className="text-gray-600 mb-6">

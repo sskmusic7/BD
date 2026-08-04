@@ -10,6 +10,7 @@ import FriendsPage from './components/FriendsPage';
 import Navbar from './components/Navbar';
 import BackgroundSelector from './components/BackgroundSelector';
 import InviteLanding from './components/InviteLanding';
+import { playConnectedChime, playDisconnectedTone } from './utils/sounds';
 // AuthScreen parked — OAuth disabled; re-enable with ConvexAuthProvider later.
 // import AuthScreen from './components/AuthScreen';
 // import { Authenticated, Unauthenticated } from 'convex/react';
@@ -341,6 +342,7 @@ function AppContentDemo() {
 
     const handlePartnerFound = (data) => {
       console.log('Demo mode: Partner found!', data);
+      playConnectedChime();
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,
@@ -350,11 +352,13 @@ function AppContentDemo() {
 
     const handleSessionEnded = () => {
       console.log('Demo mode: Session ended');
+      playDisconnectedTone();
       setCurrentSession(null);
     };
 
     const handlePartnerDisconnected = () => {
       console.log('Demo mode: Partner disconnected');
+      playDisconnectedTone();
       setCurrentSession(null);
       setIsSearching(false);
     };
