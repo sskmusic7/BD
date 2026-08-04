@@ -14,12 +14,19 @@ export const canRecordCalls =
 
 function pickMimeType() {
   const candidates = [
-    // Safari/iOS supports mp4/h264, not webm.
-    'video/mp4;codecs=h264,aac',
-    'video/mp4',
+    // Prefer webm where available — verified directly that Chromium's
+    // generic 'video/mp4' fallback (it doesn't support h264/aac at all;
+    // it silently maps to vp9/opus-in-mp4) drops nearly all audio
+    // specifically when the track comes from a Web Audio
+    // MediaStreamAudioDestinationNode (the same raw mic track recorded
+    // fine with the identical mimeType — only the *mixed* track breaks).
+    // webm handled the same mixed track correctly. mp4 is kept only as
+    // the Safari/iOS fallback, since Safari has no webm support at all.
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
+    'video/mp4;codecs=h264,aac',
+    'video/mp4',
   ];
   return candidates.find(type => window.MediaRecorder.isTypeSupported(type)) || '';
 }
@@ -123,16 +130,6 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
       ...destination.stream.getAudioTracks(),
     ]);
     compositeStreamRef.current = combinedStream;
-
-    // TEMP DIAGNOSTIC — remove after finding the audio issue.
-    console.log('[recorder-debug]', {
-      audioCtxState: audioCtx.state,
-      localAudioTracks: localStream?.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
-      remoteAudioTracks: remoteStream?.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
-      destinationAudioTracks: destination.stream.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
-      combinedVideoTracks: combinedStream.getVideoTracks().length,
-      combinedAudioTracks: combinedStream.getAudioTracks().length,
-    });
 
     const mimeType = pickMimeType();
     let recorder;
