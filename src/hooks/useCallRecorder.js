@@ -124,6 +124,16 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     ]);
     compositeStreamRef.current = combinedStream;
 
+    // TEMP DIAGNOSTIC — remove after finding the audio issue.
+    console.log('[recorder-debug]', {
+      audioCtxState: audioCtx.state,
+      localAudioTracks: localStream?.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
+      remoteAudioTracks: remoteStream?.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
+      destinationAudioTracks: destination.stream.getAudioTracks().map(t => ({ enabled: t.enabled, readyState: t.readyState, muted: t.muted })),
+      combinedVideoTracks: combinedStream.getVideoTracks().length,
+      combinedAudioTracks: combinedStream.getAudioTracks().length,
+    });
+
     const mimeType = pickMimeType();
     let recorder;
     try {
