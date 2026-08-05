@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import io from 'socket.io-client';
 import config from './config/config';
 import { BackgroundProvider, useBackground } from './context/BackgroundContext';
@@ -259,6 +259,30 @@ function SimpleUserSetup({ onComplete }) {
   );
 }
 
+// Landing spot for a direct-invite link (/room/:code). By the time this
+// route can render, isSetup/isSocketReady are already guaranteed true (see
+// AppContentDemo's early returns) — the socket is live, so this just needs
+// to trigger the join once on mount.
+function RoomJoin({ onJoin }) {
+  const { code } = useParams();
+  const hasJoinedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasJoinedRef.current || !code) return;
+    hasJoinedRef.current = true;
+    onJoin(code);
+  }, [code, onJoin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-gray-600">Joining call...</p>
+      </div>
+    </div>
+  );
+}
+
 // DEMO MODE: Simple app without auth/Convex (default production path)
 // eslint-disable-next-line no-unused-vars
 function AppContentDemo() {
@@ -290,6 +314,9 @@ function AppContentDemo() {
   const [currentSession, setCurrentSession] = useState(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // Track searching state at App level
+  const [activeRoomCode, setActiveRoomCode] = useState(null); // set while creating/waiting on a direct-invite room
+  const [roomError, setRoomError] = useState(null);
+  const [roomLinkCopied, setRoomLinkCopied] = useState(false);
 
   // Tracks the live session id for handleConnect's closure below. A real
   // page reload resets currentSession (and this ref) back to null, while a
@@ -300,6 +327,14 @@ function AppContentDemo() {
   useEffect(() => {
     currentSessionRef.current = currentSession;
   }, [currentSession]);
+
+  // Same staleness concern as currentSessionRef above — handlePartnerFound
+  // lives inside the socket-setup effect (deps: [isSetup]), so it would
+  // otherwise only ever see activeRoomCode's value from mount time.
+  const activeRoomCodeRef = useRef(null);
+  useEffect(() => {
+    activeRoomCodeRef.current = activeRoomCode;
+  }, [activeRoomCode]);
 
   // Handle setup completion
   const handleSetupComplete = ({ name, sessionToken: token }) => {
@@ -343,6 +378,15 @@ function AppContentDemo() {
     const handlePartnerFound = (data) => {
       console.log('Demo mode: Partner found!', data);
       playConnectedChime();
+      // If we were creating/joining a direct-invite room, this session IS
+      // that room — remember its code so "Rejoin your last call" works
+      // later. Random matches don't persist anything here; there's nothing
+      // meaningful to "rejoin" with a stranger.
+      if (activeRoomCodeRef.current) {
+        localStorage.setItem('bd_last_room_code', data.sessionId);
+      }
+      setActiveRoomCode(null);
+      setRoomError(null);
       setCurrentSession({
         id: data.sessionId,
         partner: data.partner,
@@ -350,15 +394,39 @@ function AppContentDemo() {
       });
     };
 
+    const handleRoomWaiting = () => {
+      console.log('Demo mode: Waiting in room (rejoining own empty room)');
+    };
+
+    const handleRoomError = (data) => {
+      console.log('Demo mode: Room error', data);
+      setActiveRoomCode(null);
+      setRoomError(data?.error || 'Could not join that call.');
+    };
+
+    // Clears the persisted "rejoin" link once a call is truly over — after
+    // the (possibly 5-minute, for room calls) grace period genuinely
+    // expires server-side, reusing the link would just fail anyway. Only
+    // clears it if it matches the session that just ended, so it can't
+    // wipe out a different room's saved code.
+    const clearLastRoomCodeIfCurrent = () => {
+      const endedSessionId = currentSessionRef.current?.id;
+      if (endedSessionId && localStorage.getItem('bd_last_room_code') === endedSessionId) {
+        localStorage.removeItem('bd_last_room_code');
+      }
+    };
+
     const handleSessionEnded = () => {
       console.log('Demo mode: Session ended');
       playDisconnectedTone();
+      clearLastRoomCodeIfCurrent();
       setCurrentSession(null);
     };
 
     const handlePartnerDisconnected = () => {
       console.log('Demo mode: Partner disconnected');
       playDisconnectedTone();
+      clearLastRoomCodeIfCurrent();
       setCurrentSession(null);
       setIsSearching(false);
     };
@@ -406,6 +474,8 @@ function AppContentDemo() {
     newSocket.on('partner-disconnected', handlePartnerDisconnected);
     newSocket.on('waiting-for-partner', handleWaitingForPartner);
     newSocket.on('search-cancelled', handleSearchCancelled);
+    newSocket.on('room-waiting', handleRoomWaiting);
+    newSocket.on('room-error', handleRoomError);
     newSocket.on('connect', handleConnect);
     newSocket.on('disconnect', handleDisconnect);
 
@@ -419,12 +489,35 @@ function AppContentDemo() {
       newSocket.off('partner-disconnected', handlePartnerDisconnected);
       newSocket.off('waiting-for-partner', handleWaitingForPartner);
       newSocket.off('search-cancelled', handleSearchCancelled);
+      newSocket.off('room-waiting', handleRoomWaiting);
+      newSocket.off('room-error', handleRoomError);
       newSocket.off('connect', handleConnect);
       newSocket.off('disconnect', handleDisconnect);
       newSocket.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSetup]); // Run when setup completes
+
+  // Generates a shareable room code and starts waiting for someone to join
+  // via that link — a direct, deliberate invite rather than random
+  // matching. The server needs nothing back from this (fire-and-forget);
+  // the UI just shows its own waiting state until 'partner-found' arrives.
+  const createRoom = () => {
+    if (!socket) return;
+    const roomCode = crypto.randomUUID();
+    setRoomError(null);
+    setActiveRoomCode(roomCode);
+    socket.emit('create-room', roomCode);
+  };
+
+  // Used both by the /room/:code route and the "Rejoin your last call"
+  // button on HomePage — same server-side handler either way.
+  const joinRoom = (roomCode) => {
+    if (!socket) return;
+    setRoomError(null);
+    setActiveRoomCode(roomCode);
+    socket.emit('join-room', roomCode);
+  };
 
   // Show setup screen if not completed
   if (!isSetup) {
@@ -439,6 +532,69 @@ function AppContentDemo() {
           <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <p className="text-gray-600 text-center">Connecting to BodyDouble...</p>
+          </div>
+        </div>
+      </BackgroundRenderer>
+    );
+  }
+
+  // Waiting on a direct-invite room — either just created one, or just
+  // asked to join one (both set activeRoomCode; 'partner-found' clears it
+  // and takes over via the currentSession branch below).
+  if (activeRoomCode && !currentSession) {
+    const inviteUrl = `${window.location.origin}/room/${activeRoomCode}`;
+    return (
+      <BackgroundRenderer>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl max-w-md w-full text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Waiting for them to join...</h2>
+            <p className="text-gray-600 text-sm mb-4">
+              Share this link — whoever opens it joins this call directly, no matching queue.
+            </p>
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-2 mb-4">
+              <input
+                readOnly
+                value={inviteUrl}
+                onClick={(e) => e.target.select()}
+                className="flex-1 bg-transparent text-sm text-gray-700 outline-none px-2"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteUrl);
+                  setRoomLinkCopied(true);
+                  setTimeout(() => setRoomLinkCopied(false), 2000);
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                {roomLinkCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <button
+              onClick={() => setActiveRoomCode(null)}
+              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </BackgroundRenderer>
+    );
+  }
+
+  if (roomError) {
+    return (
+      <BackgroundRenderer>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl max-w-md w-full text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Couldn&apos;t join that call</h2>
+            <p className="text-gray-600 text-sm mb-6">{roomError}</p>
+            <button
+              onClick={() => setRoomError(null)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              Back to Home
+            </button>
           </div>
         </div>
       </BackgroundRenderer>
@@ -466,6 +622,7 @@ function AppContentDemo() {
         <BackgroundSelector />
         <Routes>
           <Route path="/invite/:token" element={<InviteLanding />} />
+          <Route path="/room/:code" element={<RoomJoin onJoin={joinRoom} />} />
           {/* Add key to force remount when socket becomes ready */}
           <Route key={isSocketReady ? 'ready' : 'loading'} path="/" element={
             <HomePage
@@ -473,6 +630,8 @@ function AppContentDemo() {
               user={user}
               isSearching={isSearching}
               onSearchingChange={setIsSearching}
+              onCreateRoom={createRoom}
+              onRejoinRoom={joinRoom}
             />
           } />
           <Route path="/friends" element={<FriendsPage socket={socket} user={user} convexFriends={[]} createInviteLink={null} />} />

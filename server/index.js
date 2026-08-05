@@ -233,8 +233,14 @@ const friendships = loadFriendships();
 // client reconnects moments later — without this window, every such blip
 // during a call kills the session and looks like "partner disconnected".
 const DISCONNECT_GRACE_MS = 10000;
+// Room sessions (deliberate, invite-link calls — see create-room/join-room)
+// get a much longer grace window than random-matched ones. A stranger
+// disconnecting should be detected quickly so their partner isn't left
+// waiting; someone you deliberately invited is worth actually waiting for.
+const ROOM_DISCONNECT_GRACE_MS = 5 * 60 * 1000;
 // Keyed by stable user id (userData.userId), value: { timeout, sessionId }
 const pendingSessionDisconnects = new Map();
+const ROOM_CODE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Helper: find a user by their userId (since users Map is keyed by socketId)
 function findUserByUserId(userId) {
@@ -629,6 +635,94 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Direct call invite (Zoom-style link) — client generates the room code
+  // itself and already shows its own "waiting" UI, so this is fire-and-
+  // forget; no response event needed on success.
+  socket.on('create-room', (roomCode) => {
+    const currentUser = users.get(socket.id);
+    if (!currentUser || !ROOM_CODE_RE.test(roomCode)) return;
+
+    if (currentUser.currentSession) {
+      // Already in a session/room — nothing to do, avoid orphaning it.
+      return;
+    }
+
+    const session = {
+      id: roomCode,
+      users: [currentUser],
+      startTime: new Date(),
+      isActive: true,
+      isRoomSession: true
+    };
+
+    activeSessions.set(roomCode, session);
+    currentUser.currentSession = roomCode;
+    socket.join(roomCode);
+  });
+
+  socket.on('join-room', (roomCode) => {
+    const currentUser = users.get(socket.id);
+    if (!currentUser) return;
+    if (!ROOM_CODE_RE.test(roomCode)) {
+      socket.emit('room-error', { error: 'This invite link is invalid or has expired.' });
+      return;
+    }
+
+    const session = activeSessions.get(roomCode);
+    if (!session) {
+      socket.emit('room-error', { error: 'This invite link is invalid or has expired.' });
+      return;
+    }
+
+    const existingEntry = session.users.find(u => u.id === currentUser.id);
+
+    if (existingEntry) {
+      // Rejoin — same participant coming back (grace-period reconnect, or
+      // reopening their own still-empty room). Matched by stable id, not
+      // currentSession, since a fresh page load never sends resumeSessionId
+      // and the generic 'join' handler will already have nulled it.
+      const pending = pendingSessionDisconnects.get(currentUser.id);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        pendingSessionDisconnects.delete(currentUser.id);
+      }
+
+      existingEntry.socketId = socket.id;
+      currentUser.currentSession = roomCode;
+      socket.join(roomCode);
+
+      const partner = session.users.find(u => u.id !== currentUser.id);
+      if (partner) {
+        socket.emit('partner-found', { partner, sessionId: roomCode });
+      } else {
+        socket.emit('room-waiting', { roomCode });
+      }
+      return;
+    }
+
+    if (session.users.length >= 2) {
+      socket.emit('room-error', { error: 'This room is full.' });
+      return;
+    }
+
+    if (currentUser.currentSession && currentUser.currentSession !== roomCode) {
+      socket.emit('room-error', { error: 'You are already in another session.' });
+      return;
+    }
+
+    // Genuinely a new second participant joining.
+    const creator = session.users[0];
+    session.users.push(currentUser);
+    currentUser.currentSession = roomCode;
+    socket.join(roomCode);
+
+    socket.emit('partner-found', { partner: creator, sessionId: roomCode });
+    const creatorSocket = io.sockets.sockets.get(creator.socketId);
+    if (creatorSocket) {
+      creatorSocket.emit('partner-found', { partner: currentUser, sessionId: roomCode });
+    }
+  });
+
   // Disconnect handling
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
@@ -648,6 +742,9 @@ io.on('connection', (socket) => {
       // (matched by stable userId) reconnects before it fires.
       if (user.currentSession) {
         const sessionId = user.currentSession;
+        const graceMs = activeSessions.get(sessionId)?.isRoomSession
+          ? ROOM_DISCONNECT_GRACE_MS
+          : DISCONNECT_GRACE_MS;
         const timeout = setTimeout(() => {
           pendingSessionDisconnects.delete(user.id);
           const session = activeSessions.get(sessionId);
@@ -668,7 +765,7 @@ io.on('connection', (socket) => {
             activeSessions.delete(sessionId);
             console.log(`Session ${sessionId} cleaned up after disconnect grace period`);
           }
-        }, DISCONNECT_GRACE_MS);
+        }, graceMs);
 
         pendingSessionDisconnects.set(user.id, { timeout, sessionId });
       }

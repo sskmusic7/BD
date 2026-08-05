@@ -4,9 +4,10 @@ import config from '../config/config';
 import { useBackground } from '../context/BackgroundContext';
 import { startSearchingLoop, stopSearchingLoop } from '../utils/sounds';
 
-const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () => {} }) => {
+const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () => {}, onCreateRoom = null, onRejoinRoom = null }) => {
   const { currentBackground } = useBackground();
   const [stats, setStats] = useState({ onlineUsers: 0, activeSessions: 0 });
+  const lastRoomCode = typeof window !== 'undefined' ? localStorage.getItem('bd_last_room_code') : null;
 
   useEffect(() => {
     // Fetch stats
@@ -143,6 +144,28 @@ const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () =>
             </div>
           )}
         </div>
+
+        {/* Direct invite (Zoom-style room link) — separate from random matching above */}
+        {!isSearching && (onCreateRoom || (onRejoinRoom && lastRoomCode)) && (
+          <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {onCreateRoom && (
+              <button
+                onClick={onCreateRoom}
+                className="bg-white/90 hover:bg-white text-gray-800 px-6 py-3 rounded-xl font-medium transition-colors shadow-lg"
+              >
+                Invite someone directly
+              </button>
+            )}
+            {onRejoinRoom && lastRoomCode && (
+              <button
+                onClick={() => onRejoinRoom(lastRoomCode)}
+                className="bg-white/90 hover:bg-white text-gray-800 px-6 py-3 rounded-xl font-medium transition-colors shadow-lg"
+              >
+                Rejoin your last call
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Features */}
