@@ -90,6 +90,13 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
   const failedChunkCountRef = useRef(0);
   const timerIntervalRef = useRef(null);
   const compositeStreamRef = useRef(null);
+  // Only the canvas's own captured tracks — these belong exclusively to the
+  // recorder and are safe to stop. The audio tracks added to
+  // compositeStreamRef are the SAME track objects the live call is using
+  // (a MediaStreamTrack can belong to multiple MediaStreams at once, this
+  // is standard/supported), so teardown must never call .stop() on those —
+  // it would end the live call's audio, not just the recording.
+  const ownedTracksRef = useRef([]);
 
   const stopDrawLoop = useCallback(() => {
     if (rafIdRef.current) {
@@ -104,13 +111,9 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-    if (compositeStreamRef.current) {
-      // These are the canvas's own captured track plus CLONED audio
-      // tracks (see startRecording) — stopping them here never touches
-      // the live call's actual camera/mic/peer tracks.
-      compositeStreamRef.current.getTracks().forEach(track => track.stop());
-      compositeStreamRef.current = null;
-    }
+    ownedTracksRef.current.forEach(track => track.stop());
+    ownedTracksRef.current = [];
+    compositeStreamRef.current = null;
   }, [stopDrawLoop]);
 
   const startRecording = useCallback(() => {
@@ -151,16 +154,25 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     draw();
 
     const canvasStream = canvas.captureStream(30);
+    ownedTracksRef.current = canvasStream.getVideoTracks();
 
-    // Both raw audio tracks go in directly — MediaRecorder mixes multiple
-    // audio tracks in a stream natively. Cloned so stopping them during
-    // teardown never touches the live call's actual mic/peer audio tracks.
+    // Both raw audio tracks go in directly, un-cloned — MediaRecorder mixes
+    // multiple audio tracks in a stream natively. Previously these were
+    // .clone()'d so teardown could safely stop them without touching the
+    // live call's actual audio — but MediaStreamTrack.clone() turned out to
+    // be unreliable on iOS Safari specifically for getUserMedia-sourced
+    // tracks (confirmed: recordings were missing the LOCAL mic entirely —
+    // the cloned track — while the remote track, sourced from WebRTC's
+    // ontrack instead of getUserMedia, came through fine). A track can
+    // belong to multiple MediaStreams at once, so adding the originals
+    // directly works without cloning; teardown only stops ownedTracksRef
+    // (the canvas tracks), never these shared audio tracks.
     const combinedStream = new MediaStream(canvasStream.getVideoTracks());
     if (localStream?.getAudioTracks().length) {
-      combinedStream.addTrack(localStream.getAudioTracks()[0].clone());
+      combinedStream.addTrack(localStream.getAudioTracks()[0]);
     }
     if (remoteStream?.getAudioTracks().length) {
-      combinedStream.addTrack(remoteStream.getAudioTracks()[0].clone());
+      combinedStream.addTrack(remoteStream.getAudioTracks()[0]);
     }
     compositeStreamRef.current = combinedStream;
 
