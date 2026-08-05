@@ -5,6 +5,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -31,6 +32,60 @@ const FRIENDSHIPS_FILE = path.join(DATA_DIR, 'friendships.json');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+
+// In-app call recordings — stored under the same server/data path that's
+// already the persistent Docker volume, so they survive a container
+// restart during their 24h retention window like everything else does.
+const RECORDINGS_DIR = path.join(DATA_DIR, 'recordings');
+if (!fs.existsSync(RECORDINGS_DIR)) {
+  fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+}
+
+const MIN_FREE_DISK_BYTES = 1 * 1024 * 1024 * 1024; // 1GB — this box is shared with other live services
+const RECORDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const RECORDING_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Validates the id is a real UUID before it's ever used in a file path —
+// blocks path traversal (e.g. "../../etc/passwd") entirely, not just
+// filtered.
+function recordingFilePath(id) {
+  if (typeof id !== 'string' || !RECORDING_ID_RE.test(id)) {
+    return null;
+  }
+  return path.join(RECORDINGS_DIR, `${id}.mp4`);
+}
+
+function getFreeDiskBytes() {
+  try {
+    const output = execSync(`df -k "${RECORDINGS_DIR}"`).toString();
+    const lastLine = output.trim().split('\n').pop();
+    const availableKb = parseInt(lastLine.trim().split(/\s+/)[3], 10);
+    return availableKb * 1024;
+  } catch (err) {
+    console.error('Could not check disk space, failing open:', err.message);
+    return Infinity;
+  }
+}
+
+function cleanupExpiredRecordings() {
+  fs.readdir(RECORDINGS_DIR, (err, files) => {
+    if (err) return;
+    const now = Date.now();
+    files.forEach((file) => {
+      const filePath = path.join(RECORDINGS_DIR, file);
+      fs.stat(filePath, (statErr, stats) => {
+        if (statErr) return;
+        if (now - stats.mtimeMs > RECORDING_MAX_AGE_MS) {
+          fs.unlink(filePath, (unlinkErr) => {
+            if (!unlinkErr) console.log('Deleted expired recording:', file);
+          });
+        }
+      });
+    });
+  });
+}
+setInterval(cleanupExpiredRecordings, 60 * 60 * 1000);
+cleanupExpiredRecordings();
 
 // Load persistent data
 function loadPersistentData() {
@@ -102,6 +157,55 @@ app.use(cors({
   origin: "*",
   credentials: true
 }));
+
+// In-app call recording — client streams chunks here as they're produced
+// instead of holding the whole recording in browser memory (see
+// src/hooks/useCallRecorder.js). Registered here, BEFORE the global
+// express.json() below, because body-parsing middleware can only consume
+// the request stream once — if express.json() ran first it would swallow
+// the binary body (its default behavior even for non-JSON content-types
+// leaves req.body as {}), and this route's own express.raw() would never
+// see real bytes.
+app.post('/api/recordings/:id/chunk', express.raw({ type: '*/*', limit: '10mb' }), (req, res) => {
+  const filePath = recordingFilePath(req.params.id);
+  if (!filePath) {
+    return res.status(400).json({ error: 'Invalid recording id' });
+  }
+  if (getFreeDiskBytes() < MIN_FREE_DISK_BYTES) {
+    return res.status(507).json({ error: 'Server storage is low — recording cannot continue.' });
+  }
+  fs.appendFile(filePath, req.body, (err) => {
+    if (err) {
+      console.error('Error writing recording chunk:', err);
+      return res.status(500).json({ error: 'Failed to save chunk' });
+    }
+    res.status(204).end();
+  });
+});
+
+app.post('/api/recordings/:id/finish', (req, res) => {
+  const filePath = recordingFilePath(req.params.id);
+  if (!filePath) {
+    return res.status(400).json({ error: 'Invalid recording id' });
+  }
+  fs.stat(filePath, (err, stats) => {
+    if (err) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
+    res.json({ ok: true, size: stats.size });
+  });
+});
+
+app.get('/api/recordings/:id/download', (req, res) => {
+  const filePath = recordingFilePath(req.params.id);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).send('Recording not found');
+  }
+  res.setHeader('Content-Disposition', `attachment; filename="bodydouble-call-${req.params.id}.mp4"`);
+  res.setHeader('Content-Type', 'video/mp4');
+  fs.createReadStream(filePath).pipe(res);
+});
+
 app.use(express.json());
 
 // Handle preflight requests

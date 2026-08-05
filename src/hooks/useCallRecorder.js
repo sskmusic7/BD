@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import config from '../config/config';
 
 // Records the call INSIDE the page instead of relying on the OS screen
 // recorder — iOS Safari's screen recording (ReplayKit/Control Center) does
@@ -14,11 +15,24 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 // alone with no video at all. Including both RAW audio tracks directly in
 // the recorded stream works instead — MediaRecorder mixes multiple audio
 // tracks in a stream natively, and it's simpler code besides.
+//
+// Chunks are streamed to the server as they're produced (server/index.js's
+// /api/recordings/:id/* routes) instead of held in browser memory for the
+// whole recording — a long session could otherwise mean a lot of RAM
+// sitting in the tab, which is a real crash risk on a phone.
 export const canRecordCalls =
   typeof window !== 'undefined' &&
   !!window.MediaRecorder &&
   typeof HTMLCanvasElement !== 'undefined' &&
-  !!HTMLCanvasElement.prototype.captureStream;
+  !!HTMLCanvasElement.prototype.captureStream &&
+  typeof crypto !== 'undefined' &&
+  !!crypto.randomUUID;
+
+// Modest, explicit caps instead of browser defaults — keeps an hour-long
+// recording predictable (roughly 700MB-1GB) rather than an unbounded size
+// on a server disk shared with other live services.
+const VIDEO_BITS_PER_SECOND = 1_500_000;
+const AUDIO_BITS_PER_SECOND = 96_000;
 
 function pickMimeType() {
   const candidates = [
@@ -27,19 +41,40 @@ function pickMimeType() {
     // completely empty (0-byte) file for *any* video/webm variant once the
     // stream is a reconstructed MediaStream combining tracks from
     // different sources (exactly what this hook always does: a canvas
-    // video track + a Web Audio-mixed audio track). This reproduced with
-    // vp9, vp8, and generic webm, and with multiple stream-construction
-    // approaches (constructor array, addTrack, cloned tracks) — it's a
+    // video track + raw audio tracks). This reproduced with vp9, vp8, and
+    // generic webm, and with multiple stream-construction approaches — a
     // genuine Chromium limitation, not a workaround-able API misuse.
     // video/mp4 (Chromium maps generic 'video/mp4' to vp9/opus-in-mp4
     // internally, since it doesn't support h264/aac at all) reliably
-    // produces a real, playable file with the exact same reconstructed
-    // stream — audio is present, just lower-bitrate than ideal. A working
-    // file with imperfect audio beats a 0-byte failure.
+    // produces a real, playable file with the same reconstructed stream.
     'video/mp4;codecs=h264,aac',
     'video/mp4',
   ];
   return candidates.find(type => window.MediaRecorder.isTypeSupported(type)) || '';
+}
+
+async function uploadChunk(recordingId, blob) {
+  const url = `${config.SERVER_URL}/api/recordings/${recordingId}/chunk`;
+  // Explicit Content-Type instead of letting fetch use the Blob's own type
+  // (MediaRecorder's mimeType, e.g. "video/mp4;codecs=h264,aac") — that
+  // codecs parameter has an unquoted comma, which isn't valid per HTTP's
+  // parameter syntax and breaks the server's content-type matching,
+  // silently skipping raw body parsing. Verified directly (reproduced with
+  // plain curl, independent of fetch) before landing on this fix.
+  const attempt = () => fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: blob,
+  });
+
+  let response = await attempt().catch(() => null);
+  if (!response || !response.ok) {
+    // One retry — chunk uploads happen every second during a live call,
+    // a single transient network blip shouldn't need to fail the whole
+    // recording.
+    response = await attempt().catch(() => null);
+  }
+  return !!response && response.ok;
 }
 
 const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStream }) => {
@@ -51,7 +86,8 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
 
   const rafIdRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
+  const recordingIdRef = useRef(null);
+  const failedChunkCountRef = useRef(0);
   const timerIntervalRef = useRef(null);
   const compositeStreamRef = useRef(null);
 
@@ -129,27 +165,45 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     compositeStreamRef.current = combinedStream;
 
     const mimeType = pickMimeType();
+    const recorderOptions = {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
+      audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
+    };
     let recorder;
     try {
-      recorder = mimeType ? new MediaRecorder(combinedStream, { mimeType }) : new MediaRecorder(combinedStream);
+      recorder = new MediaRecorder(combinedStream, recorderOptions);
     } catch (err) {
       setError('Could not start recording: ' + err.message);
       teardown();
       return;
     }
 
-    chunksRef.current = [];
+    const recordingId = crypto.randomUUID();
+    recordingIdRef.current = recordingId;
+    failedChunkCountRef.current = 0;
+
     recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        chunksRef.current.push(event.data);
-      }
+      if (!event.data || event.data.size === 0) return;
+      uploadChunk(recordingId, event.data).then((ok) => {
+        if (!ok) {
+          failedChunkCountRef.current += 1;
+          console.error('Recording chunk upload failed (chunk skipped, recording continues)');
+        }
+      });
     };
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const extension = (recorder.mimeType || mimeType || '').includes('mp4') ? 'mp4' : 'webm';
-      setDownloadUrl(url);
-      setDownloadFilename(`bodydouble-call-${Date.now()}.${extension}`);
+    recorder.onstop = async () => {
+      try {
+        const res = await fetch(`${config.SERVER_URL}/api/recordings/${recordingId}/finish`, { method: 'POST' });
+        if (!res.ok) throw new Error(`finish failed: ${res.status}`);
+        setDownloadUrl(`${config.SERVER_URL}/api/recordings/${recordingId}/download`);
+        setDownloadFilename(`bodydouble-call-${Date.now()}.mp4`);
+        if (failedChunkCountRef.current > 0) {
+          setError(`Recording saved, but ${failedChunkCountRef.current} segment(s) failed to upload and may be missing.`);
+        }
+      } catch (err) {
+        setError('Could not finalize the recording: ' + err.message);
+      }
     };
 
     mediaRecorderRef.current = recorder;
@@ -176,15 +230,12 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
   }, [isRecording, teardown]);
 
   const clearDownload = useCallback(() => {
-    if (downloadUrl) {
-      URL.revokeObjectURL(downloadUrl);
-    }
     setDownloadUrl(null);
     setDownloadFilename(null);
-  }, [downloadUrl]);
+  }, []);
 
   // Stop cleanly if the component unmounts mid-recording (e.g. the session
-  // ends) rather than leaking the canvas loop, audio context, and tracks.
+  // ends) rather than leaking the canvas loop and tracks.
   useEffect(() => {
     return () => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
