@@ -288,28 +288,41 @@ function RoomJoin({ onJoin }) {
 function AppContentDemo() {
   // State for user setup
   const [isSetup, setIsSetup] = useState(false);
-  const [sessionToken, setSessionToken] = useState(null);
 
-  // Check for existing session on mount
+  // Check for existing session on mount. The token itself isn't held in
+  // state — the user object below is seeded from localStorage directly, so
+  // a separate sessionToken state would just be a second source of truth
+  // that lags a render behind (which is what caused the identity bug).
   useEffect(() => {
     const savedName = localStorage.getItem('bd_username');
     const savedToken = localStorage.getItem('bd_session_token');
     if (savedName && savedToken) {
       setIsSetup(true);
-      setSessionToken(savedToken);
     }
   }, []);
 
-  // Generate user from saved session or defaults
-  const initialUser = {
-    id: sessionToken || ('demo_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)),
+  // Generate user from saved session or defaults.
+  //
+  // Read the saved token straight from localStorage in a lazy initializer
+  // rather than from the sessionToken state above: useState only ever uses
+  // its argument on the FIRST render, and on that render sessionToken is
+  // still null (it's populated by the mount effect above, which runs after).
+  // So a returning user used to fall through to the random 'demo_user_...'
+  // branch and got a BRAND NEW identity on every single page load, with the
+  // saved token never actually applied. That broke every piece of logic
+  // keyed on a stable user id — the server couldn't recognise a returning
+  // user, so reopening an invite link made the server treat them as a
+  // stranger: their own stale entry stayed in the room as a ghost, they'd
+  // get "partner-found" matched against *themselves*, and the person they
+  // actually sent the link to was then locked out with "This room is full."
+  const [user, setUser] = useState(() => ({
+    id: localStorage.getItem('bd_session_token') || ('demo_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)),
     name: localStorage.getItem('bd_username') || 'Demo User',
     focusStyle: 'Body Doubling',
     workType: 'Creative Work',
     sessionLength: '25 minutes',
     adhdType: 'Inattentive'
-  };
-  const [user, setUser] = useState(initialUser);
+  }));
   const [socket, setSocket] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
@@ -354,7 +367,6 @@ function AppContentDemo() {
   // Handle setup completion
   const handleSetupComplete = ({ name, sessionToken: token }) => {
     setIsSetup(true);
-    setSessionToken(token);
     setUser(prev => ({
       ...prev,
       id: token,

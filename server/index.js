@@ -241,6 +241,32 @@ const ROOM_DISCONNECT_GRACE_MS = 5 * 60 * 1000;
 // Keyed by stable user id (userData.userId), value: { timeout, sessionId }
 const pendingSessionDisconnects = new Map();
 const ROOM_CODE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Solo rooms survive a creator disconnect (see the disconnect handler) so a
+// link that's already been sent keeps working — this bounds how long a room
+// nobody ever opened can sit around once its creator is genuinely gone.
+const ROOM_IDLE_MAX_AGE_MS = 60 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of activeSessions) {
+    if (!session.isRoomSession || session.users.length !== 1) continue;
+    const creator = session.users[0];
+    if (creator.isOnline) continue;
+    if (now - new Date(session.startTime).getTime() <= ROOM_IDLE_MAX_AGE_MS) continue;
+    if (creator.currentSession === id) creator.currentSession = null;
+    activeSessions.delete(id);
+    console.log('Swept idle abandoned room:', id);
+  }
+}, 10 * 60 * 1000);
+
+// Helper: find a live invite-link room this user is still a member of.
+function findLiveRoomSessionFor(userId) {
+  for (const session of activeSessions.values()) {
+    if (session.isRoomSession && session.users.some(u => u.id === userId)) {
+      return session;
+    }
+  }
+  return null;
+}
 
 // Helper: find a user by their userId (since users Map is keyed by socketId)
 function findUserByUserId(userId) {
@@ -343,6 +369,43 @@ io.on('connection', (socket) => {
       existingUser.socketId = socket.id;
       existingUser.isOnline = true;
       users.set(socket.id, existingUser);
+
+      // Invite-link rooms are durable by design — unlike a random match,
+      // the whole point is that the link keeps working. Re-attach this
+      // socket to any live room the user is still a member of, even with
+      // no resumeSessionId. A creator WAITING in their own room never has
+      // one (they have activeRoomCode but no currentSession yet), so a
+      // plain transport blip while they were texting the link out used to
+      // leave them a member of the room but OUTSIDE its socket.io room —
+      // every webrtc-offer/answer/ice is delivered with socket.to(room),
+      // so all signaling was silently dropped. Both sides still showed
+      // "partner found" and rendered the call UI, but no video or audio
+      // could ever flow. Verified directly with a signaling repro test.
+      if (!liveSession) {
+        const liveRoom = findLiveRoomSessionFor(existingUser.id);
+        if (liveRoom) {
+          const pendingRoom = pendingSessionDisconnects.get(existingUser.id);
+          if (pendingRoom && pendingRoom.sessionId === liveRoom.id) {
+            clearTimeout(pendingRoom.timeout);
+            pendingSessionDisconnects.delete(existingUser.id);
+          }
+
+          existingUser.currentSession = liveRoom.id;
+          liveRoom.users.forEach(u => {
+            if (u.id === existingUser.id) u.socketId = socket.id;
+          });
+          socket.join(liveRoom.id);
+
+          const roomPartner = liveRoom.users.find(u => u.id !== existingUser.id);
+          if (roomPartner) {
+            // Also covers a full page reload mid-call: the client lost its
+            // session state, so re-deliver it instead of stranding them.
+            socket.emit('partner-found', { partner: roomPartner, sessionId: liveRoom.id });
+          }
+          console.log('Re-attached to live room:', existingUser.name, liveRoom.id);
+        }
+      }
+
       socket.emit('joined', { userId: existingUser.id, user: existingUser });
       console.log('User reconnected:', existingUser.name, 'from', oldSocketId, 'to', socket.id);
     } else {
@@ -793,6 +856,16 @@ io.on('connection', (socket) => {
         const timeout = setTimeout(() => {
           pendingSessionDisconnects.delete(user.id);
           const session = activeSessions.get(sessionId);
+          // A room whose creator is still alone in it is just an invite
+          // link nobody has opened yet. Tearing it down here would kill a
+          // link they've already sent out (and there's no partner to
+          // notify anyway) — that's the "this invite link is invalid or
+          // has expired" you'd hit just by backgrounding the tab while
+          // waiting. Left to the idle sweeper below instead.
+          if (session && session.isRoomSession && session.users.length === 1) {
+            console.log(`Solo room ${sessionId} kept alive after creator disconnect`);
+            return;
+          }
           if (session) {
             io.to(sessionId).emit('partner-disconnected');
             session.users.forEach(u => {
