@@ -336,6 +336,21 @@ function AppContentDemo() {
     activeRoomCodeRef.current = activeRoomCode;
   }, [activeRoomCode]);
 
+  // Whoever joined via a /room/:code link keeps that URL in the address bar
+  // for the whole call (nothing ever navigates away from it). Once that
+  // flow is over — the room errored out, the call ended, or the user hit
+  // Cancel — the URL must stop pointing at /room/:code, or the next time
+  // this component falls through to rendering <Router>, it re-matches the
+  // same route, remounts RoomJoin, and fires ANOTHER 'join-room' for a link
+  // that's now dead/finished. That loop is what made "Back to Home" look
+  // broken and the screen freeze — every render bounced straight back into
+  // another failed join attempt.
+  const resetRoomUrlIfNeeded = () => {
+    if (window.location.pathname.startsWith('/room/')) {
+      window.history.replaceState(null, '', '/');
+    }
+  };
+
   // Handle setup completion
   const handleSetupComplete = ({ name, sessionToken: token }) => {
     setIsSetup(true);
@@ -402,6 +417,7 @@ function AppContentDemo() {
       console.log('Demo mode: Room error', data);
       setActiveRoomCode(null);
       setRoomError(data?.error || 'Could not join that call.');
+      resetRoomUrlIfNeeded();
     };
 
     // Clears the persisted "rejoin" link once a call is truly over — after
@@ -421,6 +437,7 @@ function AppContentDemo() {
       playDisconnectedTone();
       clearLastRoomCodeIfCurrent();
       setCurrentSession(null);
+      resetRoomUrlIfNeeded();
     };
 
     const handlePartnerDisconnected = () => {
@@ -429,6 +446,7 @@ function AppContentDemo() {
       clearLastRoomCodeIfCurrent();
       setCurrentSession(null);
       setIsSearching(false);
+      resetRoomUrlIfNeeded();
     };
 
     const handleWaitingForPartner = () => {
@@ -571,7 +589,11 @@ function AppContentDemo() {
               </button>
             </div>
             <button
-              onClick={() => setActiveRoomCode(null)}
+              onClick={() => {
+                if (socket) socket.emit('leave-room', activeRoomCode);
+                setActiveRoomCode(null);
+                resetRoomUrlIfNeeded();
+              }}
               className="text-gray-500 hover:text-gray-700 text-sm font-medium"
             >
               Cancel
@@ -590,7 +612,10 @@ function AppContentDemo() {
             <h2 className="text-xl font-bold text-gray-800 mb-2">Couldn&apos;t join that call</h2>
             <p className="text-gray-600 text-sm mb-6">{roomError}</p>
             <button
-              onClick={() => setRoomError(null)}
+              onClick={() => {
+                setRoomError(null);
+                resetRoomUrlIfNeeded();
+              }}
               className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium"
             >
               Back to Home

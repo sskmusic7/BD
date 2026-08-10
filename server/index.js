@@ -643,8 +643,21 @@ io.on('connection', (socket) => {
     if (!currentUser || !ROOM_CODE_RE.test(roomCode)) return;
 
     if (currentUser.currentSession) {
-      // Already in a session/room — nothing to do, avoid orphaning it.
-      return;
+      const oldSession = activeSessions.get(currentUser.currentSession);
+      // A still-unjoined room this same user created earlier (e.g. browser
+      // back button instead of the Cancel button, or a reload) — safe to
+      // silently replace with the new one instead of leaving it orphaned
+      // AND leaving this create-room call a no-op. Anything else (a real
+      // two-person call already in progress) is left alone.
+      const isOwnAbandonedRoom = oldSession?.isRoomSession
+        && oldSession.users.length === 1
+        && oldSession.users[0].id === currentUser.id;
+      if (isOwnAbandonedRoom) {
+        activeSessions.delete(currentUser.currentSession);
+        socket.leave(currentUser.currentSession);
+      } else {
+        return;
+      }
     }
 
     const session = {
@@ -723,6 +736,38 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Deliberately abandons a room (the "Cancel" button on the waiting
+  // screen) — without this, create-room's own currentSession guard means
+  // the room silently lingers forever, and the client's next "Invite
+  // someone directly" click generates a link the server refuses to back
+  // (currentSession already points at the old, uncancelled room), while
+  // the old room is *still* live enough to later deliver a real
+  // 'partner-found' for a call this user already walked away from.
+  socket.on('leave-room', (roomCode) => {
+    const currentUser = users.get(socket.id);
+    if (!currentUser || !ROOM_CODE_RE.test(roomCode)) return;
+
+    const session = activeSessions.get(roomCode);
+    if (!session) return;
+
+    const idx = session.users.findIndex(u => u.id === currentUser.id);
+    if (idx === -1) return;
+
+    session.users.splice(idx, 1);
+    if (currentUser.currentSession === roomCode) {
+      currentUser.currentSession = null;
+    }
+    socket.leave(roomCode);
+
+    if (session.users.length > 0) {
+      // A partner had already joined when this user left — tell them
+      // rather than leaving them stuck waiting on someone who's gone.
+      io.to(roomCode).emit('partner-disconnected');
+      session.users.forEach(u => { u.currentSession = null; });
+    }
+    activeSessions.delete(roomCode);
+  });
+
   // Disconnect handling
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
@@ -791,8 +836,12 @@ app.get('/api/stats', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
+  let onlineUsers = 0;
+  for (const user of users.values()) {
+    if (user.isOnline) onlineUsers++;
+  }
   res.json({
-    onlineUsers: users.size,
+    onlineUsers,
     activeSessions: activeSessions.size,
     waitingUsers: waitingQueue.length
   });

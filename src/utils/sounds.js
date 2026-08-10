@@ -51,6 +51,14 @@ export function playDisconnectedTone() {
   playTone(329.63, 0.14, 0.3);
 }
 
+export function playMessageSentTone() {
+  playTone(1046.5, 0, 0.08, 0.06); // C6, brief and quiet — shouldn't compete with call audio
+}
+
+export function playMessageReceivedTone() {
+  playTone(783.99, 0, 0.1, 0.07); // G5 — distinct from the sent tone, still brief
+}
+
 let searchingIntervalId = null;
 
 export function startSearchingLoop() {

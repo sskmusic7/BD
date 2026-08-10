@@ -25,6 +25,7 @@ import {
 import useWebRTC from '../hooks/useWebRTC';
 import useCallRecorder, { canRecordCalls } from '../hooks/useCallRecorder';
 import { useBackground } from '../context/BackgroundContext';
+import { playMessageSentTone, playMessageReceivedTone } from '../utils/sounds';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
   // Get background with fallback
@@ -116,6 +117,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   useEffect(() => {
     if (socket) {
       socket.on('session-message', (message) => {
+        playMessageReceivedTone();
         setMessages(prev => [...prev, message]);
       });
 
@@ -181,6 +183,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
         type: 'chat'
       };
       socket.emit('session-message', message);
+      playMessageSentTone();
       setMessages(prev => [...prev, {
         ...message,
         from: user,
