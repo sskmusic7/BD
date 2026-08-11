@@ -259,6 +259,43 @@ function SimpleUserSetup({ onComplete }) {
   );
 }
 
+// Detects when a newer build has been deployed while this tab has been
+// sitting open. A single-page app keeps running whatever JS it loaded at
+// first paint, so a long-lived tab silently stays on old code — which is
+// invisible and looks exactly like "the fix didn't work". Compares the
+// main.js filename this page actually loaded against the deployed
+// asset-manifest, which changes hash on every deploy.
+function useNewBuildAvailable() {
+  const [newBuildAvailable, setNewBuildAvailable] = useState(false);
+
+  useEffect(() => {
+    const loadedScript = Array.from(document.querySelectorAll('script[src]'))
+      .map(s => s.src)
+      .find(src => /\/static\/js\/main\.[a-f0-9]+\.js$/.test(src));
+    if (!loadedScript) return;
+
+    const check = async () => {
+      try {
+        const res = await fetch('/asset-manifest.json', { cache: 'no-store' });
+        if (!res.ok) return;
+        const manifest = await res.json();
+        const deployed = manifest?.files?.['main.js'];
+        if (deployed && !loadedScript.endsWith(deployed)) {
+          setNewBuildAvailable(true);
+        }
+      } catch {
+        // Offline or a blip — just try again on the next tick.
+      }
+    };
+
+    check();
+    const id = setInterval(check, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return newBuildAvailable;
+}
+
 // Landing spot for a direct-invite link (/room/:code). By the time this
 // route can render, isSetup/isSocketReady are already guaranteed true (see
 // AppContentDemo's early returns) — the socket is live, so this just needs
@@ -330,6 +367,7 @@ function AppContentDemo() {
   const [activeRoomCode, setActiveRoomCode] = useState(null); // set while creating/waiting on a direct-invite room
   const [roomError, setRoomError] = useState(null);
   const [roomLinkCopied, setRoomLinkCopied] = useState(false);
+  const newBuildAvailable = useNewBuildAvailable();
 
   // Tracks the live session id for handleConnect's closure below. A real
   // page reload resets currentSession (and this ref) back to null, while a
@@ -549,15 +587,36 @@ function AppContentDemo() {
     socket.emit('join-room', roomCode);
   };
 
+  // Sits above every screen below, including an in-progress call, since a
+  // stale tab is exactly the situation where you can't tell whether a bug
+  // is still real or you're just running yesterday's code.
+  const updateBanner = newBuildAvailable ? (
+    <div className="fixed top-0 inset-x-0 z-50 bg-amber-500 text-black px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium">
+      <span>A newer version of BodyDouble is available.</span>
+      <button
+        onClick={() => window.location.reload()}
+        className="bg-black/80 hover:bg-black text-white px-3 py-1 rounded-md"
+      >
+        Reload
+      </button>
+    </div>
+  ) : null;
+
   // Show setup screen if not completed
   if (!isSetup) {
-    return <SimpleUserSetup onComplete={handleSetupComplete} />;
+    return (
+      <>
+        {updateBanner}
+        <SimpleUserSetup onComplete={handleSetupComplete} />
+      </>
+    );
   }
 
   // Show loading while socket is connecting
   if (!isSocketReady) {
     return (
       <BackgroundRenderer>
+        {updateBanner}
         <div className="min-h-screen flex items-center justify-center">
           <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-2xl">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
@@ -642,6 +701,7 @@ function AppContentDemo() {
   if (currentSession) {
     return (
       <BackgroundRenderer>
+        {updateBanner}
         <SessionPage
           socket={socket}
           session={currentSession}
@@ -655,6 +715,7 @@ function AppContentDemo() {
   return (
     <BackgroundRenderer>
       <Router>
+        {updateBanner}
         <Navbar user={user} onLogout={() => console.log('Demo mode - logout disabled')} />
         <BackgroundSelector />
         <Routes>
