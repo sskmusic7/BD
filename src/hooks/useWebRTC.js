@@ -51,6 +51,12 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   // only be added once the peer connection exists AND its remote description
   // is set; anything earlier has to wait here or it's lost for good.
   const pendingCandidatesRef = useRef([]);
+  // Set by the signalling effect below. createPeerConnection needs to kick
+  // off recovery from its state-change handler, but recovery needs socket
+  // and sessionId — a ref keeps that one-way instead of making the two
+  // callbacks depend on each other.
+  const recoverRef = useRef(null);
+  const disconnectTimerRef = useRef(null);
 
   const initializeMedia = useCallback(async () => {
     // Reuse the existing/in-flight stream instead of calling getUserMedia
@@ -115,6 +121,38 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, []);
 
+  // Phones commonly END the camera/mic tracks when you switch to another
+  // app — they don't just pause. Coming back, the track is dead
+  // (readyState 'ended') and the sender keeps transmitting nothing, so the
+  // other person is stuck looking at a frozen frame even once the network
+  // is fine again. Re-acquire and swap the new tracks into the existing
+  // senders; replaceTrack needs no renegotiation for the same kind.
+  const ensureLocalTracksLive = useCallback(async () => {
+    const peerConnection = peerConnectionRef.current;
+    const current = localStreamRef.current;
+    const somethingDied = !current || current.getTracks().some(t => t.readyState === 'ended');
+    if (!somethingDied) return;
+
+    console.log('Local tracks ended (likely app backgrounded) — re-acquiring');
+    localStreamRef.current = null;
+    const fresh = await initializeMedia();
+    if (!fresh || !peerConnection) return;
+
+    for (const track of fresh.getTracks()) {
+      const sender = peerConnection.getSenders().find(s => s.track?.kind === track.kind)
+        // A sender whose track already ended reports track === null, so also
+        // match on the transceiver's configured kind.
+        || peerConnection.getSenders().find(s => !s.track);
+      if (sender) {
+        try {
+          await sender.replaceTrack(track);
+        } catch (err) {
+          console.error('Could not swap in refreshed track:', err.message);
+        }
+      }
+    }
+  }, [initializeMedia]);
+
   const createPeerConnection = useCallback(async (stream) => {
     const iceServers = await getIceServers();
     const peerConnection = new RTCPeerConnection({ iceServers });
@@ -153,6 +191,26 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       const state = peerConnection.iceConnectionState;
       console.log('ICE connection state:', state);
       setConnectionState(state);
+
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+
+      if (state === 'failed') {
+        // Terminal — ICE will not retry on its own.
+        recoverRef.current?.();
+      } else if (state === 'disconnected') {
+        // Often self-heals within a few seconds (brief signal loss, a
+        // network handover). Give it a moment before forcing a restart,
+        // otherwise every blip triggers a needless renegotiation.
+        disconnectTimerRef.current = setTimeout(() => {
+          disconnectTimerRef.current = null;
+          if (peerConnectionRef.current?.iceConnectionState === 'disconnected') {
+            recoverRef.current?.();
+          }
+        }, 4000);
+      }
     };
 
     return peerConnection;
@@ -248,7 +306,16 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       // and the other side is already trickling candidates at us during it.
       // They're buffered rather than dropped — see handleIceCandidate.
       const stream = await initializeMedia();
-      const peerConnection = await createPeerConnection(stream);
+
+      // Reuse the existing connection when there is one. A second offer on
+      // a live call is a RENEGOTIATION (an ICE restart after the network
+      // dropped or the app was backgrounded) — building a fresh connection
+      // here would throw away the working one, and the restart could never
+      // succeed.
+      const existing = peerConnectionRef.current;
+      const peerConnection = existing && existing.signalingState !== 'closed'
+        ? existing
+        : await createPeerConnection(stream);
 
       try {
         await peerConnection.setRemoteDescription(data.offer);
@@ -301,9 +368,61 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       }
     };
 
+    // Rebuilds the media path without tearing down the call. Only the
+    // initiator generates the offer — if both sides offered at once the
+    // descriptions would collide (glare), so the other side asks instead.
+    const restartIce = async () => {
+      const peerConnection = peerConnectionRef.current;
+      if (!peerConnection || peerConnection.signalingState === 'closed') return;
+
+      try {
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('webrtc-offer', { sessionId, offer });
+        console.log('Sent ICE restart offer');
+      } catch (error) {
+        console.error('ICE restart failed:', error);
+      }
+    };
+
+    const recover = async () => {
+      await ensureLocalTracksLive();
+      if (isInitiator) {
+        restartIce();
+      } else {
+        // Ask the initiator to drive it.
+        socket.emit('webrtc-restart-request', { sessionId });
+        console.log('Requested ICE restart from partner');
+      }
+    };
+    recoverRef.current = recover;
+
+    const handleRestartRequest = (data) => {
+      if (data.sessionId !== sessionId || !isInitiator) return;
+      console.log('Partner asked for an ICE restart');
+      restartIce();
+    };
+
+    // Coming back from another app is the moment to check everything is
+    // still alive: the socket may have reconnected, the camera track may
+    // have been killed, and ICE may be dead without having fired 'failed'
+    // yet because the whole page was frozen.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const state = peerConnectionRef.current?.iceConnectionState;
+      console.log('App foregrounded, ICE state:', state);
+      if (state === 'connected' || state === 'completed') {
+        ensureLocalTracksLive();
+      } else if (peerConnectionRef.current) {
+        recover();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     socket.on('webrtc-offer', handleOffer);
     socket.on('webrtc-answer', handleAnswer);
     socket.on('webrtc-ice-candidate', handleIceCandidate);
+    socket.on('webrtc-restart-request', handleRestartRequest);
 
     // Start the call
     startCall();
@@ -312,6 +431,13 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       socket.off('webrtc-offer', handleOffer);
       socket.off('webrtc-answer', handleAnswer);
       socket.off('webrtc-ice-candidate', handleIceCandidate);
+      socket.off('webrtc-restart-request', handleRestartRequest);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      recoverRef.current = null;
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
 
       // If this effect re-runs (e.g. React StrictMode's dev double-invoke,
       // or any future dependency change), tear down the connection it
@@ -323,7 +449,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       }
       pendingCandidatesRef.current = [];
     };
-  }, [socket, sessionId, startCall, initializeMedia, createPeerConnection]);
+  }, [socket, sessionId, startCall, initializeMedia, createPeerConnection, ensureLocalTracksLive, isInitiator]);
 
   const toggleVideo = useCallback(() => {
     if (localStreamRef.current) {

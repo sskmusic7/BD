@@ -98,6 +98,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   // 'failed' means ICE gave up finding a route between the two networks —
   // no amount of waiting fixes it, so don't keep showing a spinner.
   const connectionFailed = connectionState === 'failed';
+  // Dropped mid-call (network blip, or the app was backgrounded on a
+  // phone). Recovery runs automatically; say so rather than leaving a
+  // frozen picture with no explanation.
+  const reconnecting = connectionState === 'disconnected' && !!remoteStream;
 
   const formatRecordingTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -491,6 +495,9 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                   )}
                   <div className="absolute top-2 left-2 bg-black/50 rounded px-2 py-1">
                     <span className="text-white text-xs font-medium">{session.partner.name}</span>
+                    {reconnecting && (
+                      <span className="ml-2 text-amber-300 text-xs">Reconnecting...</span>
+                    )}
                   </div>
                 </div>
 
@@ -703,6 +710,9 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                     )}
                     <div className="absolute top-2 left-2 bg-black/50 rounded px-2 py-1">
                       <span className="text-white text-xs font-medium">{session.partner.name}</span>
+                    {reconnecting && (
+                      <span className="ml-2 text-amber-300 text-xs">Reconnecting...</span>
+                    )}
                     </div>
                   </div>
 
@@ -1037,6 +1047,9 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                   )}
                   <div className="absolute top-2 left-2 bg-black/50 rounded px-2 py-1">
                     <span className="text-white text-xs font-medium">{session.partner.name}</span>
+                    {reconnecting && (
+                      <span className="ml-2 text-amber-300 text-xs">Reconnecting...</span>
+                    )}
                   </div>
                 </div>
               </div>

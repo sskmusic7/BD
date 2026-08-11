@@ -584,6 +584,13 @@ io.on('connection', (socket) => {
     socket.to(data.sessionId).emit('webrtc-ice-candidate', data);
   });
 
+  // Asks the call's initiator to send a fresh ICE-restart offer. Only the
+  // initiator generates offers, so the other side routes the request
+  // through here rather than offering itself and causing glare.
+  socket.on('webrtc-restart-request', (data) => {
+    socket.to(data.sessionId).emit('webrtc-restart-request', data);
+  });
+
   // End session
   socket.on('end-session', () => {
     const user = users.get(socket.id);
