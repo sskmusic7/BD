@@ -7,6 +7,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [mediaError, setMediaError] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [connectionState, setConnectionState] = useState('new');
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -118,12 +119,24 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       }
     };
 
+    // Surfaced in the UI so a call that can't connect says so, instead of
+    // spinning on "Connecting..." forever with no way to tell the
+    // difference between "still negotiating" and "this will never work".
+    peerConnection.oniceconnectionstatechange = () => {
+      const state = peerConnection.iceConnectionState;
+      console.log('ICE connection state:', state);
+      setConnectionState(state);
+    };
+
     return peerConnection;
   }, [socket, sessionId]);
 
   const startCall = useCallback(async () => {
+    // Deliberately continues even when this returns null. A blocked or
+    // broken camera/mic must not stop the call being set up: without an
+    // offer the other person just sits on "Connecting..." forever with no
+    // explanation, and you lose any chance of seeing THEM too.
     const stream = await initializeMedia();
-    if (!stream) return;
 
     // Only the initiator creates a peer connection here and sends an offer.
     // The other side's peer connection is created once, in handleOffer,
@@ -131,6 +144,23 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     // orphaned connection and pull in a second, disconnected media stream.
     if (isInitiator) {
       const peerConnection = createPeerConnection(stream);
+
+      // Whatever we couldn't capture locally, still ask to RECEIVE. An
+      // offer only contains slots ("m-lines") for media it knows about, so
+      // an audio-only offer — which is exactly what a blocked camera
+      // produces via the audio fallback — gives the other side nowhere to
+      // put their video, and their camera can never reach us however good
+      // the connection is. These recvonly transceivers keep the incoming
+      // direction open regardless of local device problems. Only needed on
+      // the offering side; the answerer's slots are dictated by the offer
+      // it receives, which the browser fills in as recvonly by itself.
+      if (!stream || stream.getVideoTracks().length === 0) {
+        peerConnection.addTransceiver('video', { direction: 'recvonly' });
+      }
+      if (!stream || stream.getAudioTracks().length === 0) {
+        peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+      }
+
       try {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
@@ -362,6 +392,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     isVideoEnabled,
     isAudioEnabled,
     mediaError,
+    connectionState,
     isScreenSharing,
     toggleVideo,
     toggleAudio,

@@ -75,6 +75,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     isVideoEnabled,
     isAudioEnabled,
     mediaError,
+    connectionState,
     isScreenSharing,
     toggleVideo,
     toggleAudio,
@@ -93,6 +94,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     stopRecording,
     clearDownload
   } = useCallRecorder({ localVideoRef, remoteVideoRef, localStream, remoteStream });
+
+  // 'failed' means ICE gave up finding a route between the two networks —
+  // no amount of waiting fixes it, so don't keep showing a spinner.
+  const connectionFailed = connectionState === 'failed';
 
   const formatRecordingTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -470,10 +475,17 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                           <span className="font-bold text-xl">{session.partner.name[0].toUpperCase()}</span>
                         </div>
                         <p className="font-medium">{session.partner.name}</p>
-                        <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Connecting...</span>
-                        </div>
+                        {connectionFailed ? (
+                          <p className="mt-2 text-red-300 text-xs max-w-[14rem] mx-auto">
+                            Couldn&apos;t connect to {session.partner.name}. Your networks may be
+                            blocking the connection — try again, or switch off a VPN if you use one.
+                          </p>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Connecting...</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1009,10 +1021,17 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                           <span className="font-bold text-xl">{session.partner.name[0].toUpperCase()}</span>
                         </div>
                         <p className="font-medium">{session.partner.name}</p>
-                        <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Connecting...</span>
-                        </div>
+                        {connectionFailed ? (
+                          <p className="mt-2 text-red-300 text-xs max-w-[14rem] mx-auto">
+                            Couldn&apos;t connect to {session.partner.name}. Your networks may be
+                            blocking the connection — try again, or switch off a VPN if you use one.
+                          </p>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 mt-2 text-white/70 text-xs">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Connecting...</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
