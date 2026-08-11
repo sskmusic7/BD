@@ -14,6 +14,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const localStreamRef = useRef(null);
   const mediaPromiseRef = useRef(null);
   const screenStreamRef = useRef(null);
+  // ICE candidates that arrived before we could apply them. A candidate can
+  // only be added once the peer connection exists AND its remote description
+  // is set; anything earlier has to wait here or it's lost for good.
+  const pendingCandidatesRef = useRef([]);
 
   const initializeMedia = useCallback(async () => {
     // Reuse the existing/in-flight stream instead of calling getUserMedia
@@ -163,17 +167,39 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   useEffect(() => {
     if (!socket || !sessionId) return;
 
+    // Applies everything that queued up while we weren't ready yet. Must run
+    // immediately after any setRemoteDescription.
+    const flushPendingCandidates = async () => {
+      const peerConnection = peerConnectionRef.current;
+      if (!peerConnection || !peerConnection.remoteDescription) return;
+
+      const queued = pendingCandidatesRef.current;
+      pendingCandidatesRef.current = [];
+      for (const candidate of queued) {
+        try {
+          await peerConnection.addIceCandidate(candidate);
+        } catch (error) {
+          console.error('Error applying queued ICE candidate:', error);
+        }
+      }
+    };
+
     const handleOffer = async (data) => {
       if (data.sessionId !== sessionId) return;
-      
+
+      // getUserMedia can take a while (permission prompt, camera warm-up),
+      // and the other side is already trickling candidates at us during it.
+      // They're buffered rather than dropped — see handleIceCandidate.
       const stream = await initializeMedia();
       const peerConnection = createPeerConnection(stream);
-      
+
       try {
         await peerConnection.setRemoteDescription(data.offer);
+        await flushPendingCandidates();
+
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        
+
         socket.emit('webrtc-answer', {
           sessionId,
           answer
@@ -185,19 +211,34 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
 
     const handleAnswer = async (data) => {
       if (data.sessionId !== sessionId || !peerConnectionRef.current) return;
-      
+
       try {
         await peerConnectionRef.current.setRemoteDescription(data.answer);
+        // The answerer's candidates routinely beat its answer here.
+        await flushPendingCandidates();
       } catch (error) {
         console.error('Error handling answer:', error);
       }
     };
 
     const handleIceCandidate = async (data) => {
-      if (data.sessionId !== sessionId || !peerConnectionRef.current) return;
-      
+      if (data.sessionId !== sessionId) return;
+
+      const peerConnection = peerConnectionRef.current;
+      // Queue until there's a connection with a remote description to attach
+      // it to. Dropping these instead (the old behaviour) is invisible on a
+      // LAN — host candidates travel inside the SDP, so the call still
+      // connects — but across the internet the STUN-derived candidates are
+      // the only ones that can work, and they only ever arrive trickled like
+      // this. Losing them means ICE never completes: both people see a
+      // "connected" call with no video or audio.
+      if (!peerConnection || !peerConnection.remoteDescription) {
+        pendingCandidatesRef.current.push(data.candidate);
+        return;
+      }
+
       try {
-        await peerConnectionRef.current.addIceCandidate(data.candidate);
+        await peerConnection.addIceCandidate(data.candidate);
       } catch (error) {
         console.error('Error handling ICE candidate:', error);
       }
@@ -223,6 +264,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
+      pendingCandidatesRef.current = [];
     };
   }, [socket, sessionId, startCall, initializeMedia, createPeerConnection]);
 
