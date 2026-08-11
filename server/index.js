@@ -5,6 +5,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 // Add error handling for uncaught exceptions
@@ -903,6 +904,37 @@ io.on('connection', (socket) => {
 app.get('/api/health', (req, res) => {
   // Healthcheck endpoint for Cloud Run/Railway - return simple OK status
   res.status(200).send('OK');
+});
+
+// Short-lived TURN credentials for the relay server.
+//
+// STUN only tells each peer its public address; it can't help when both
+// sides sit behind NATs that refuse a direct path (ICE goes
+// "checking" -> "disconnected" and the call connects with no media). TURN
+// relays the packets instead. Media stays end-to-end encrypted
+// (DTLS-SRTP) — the relay forwards encrypted packets and cannot read them.
+//
+// Credentials are derived from a shared secret with an expiry baked into
+// the username (coturn's use-auth-secret scheme), so nothing long-lived
+// ships in the client bundle and a leaked credential dies within hours.
+const TURN_SECRET = process.env.TURN_SECRET || '';
+const TURN_URLS = (process.env.TURN_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+const TURN_TTL_SECONDS = 12 * 60 * 60;
+
+app.get('/api/turn-credentials', (req, res) => {
+  if (!TURN_SECRET || TURN_URLS.length === 0) {
+    // Not configured — the client falls back to STUN-only, which still
+    // works for most networks.
+    return res.json({ iceServers: [] });
+  }
+
+  const username = `${Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS}:bodydouble`;
+  const credential = crypto.createHmac('sha1', TURN_SECRET).update(username).digest('base64');
+
+  res.json({
+    iceServers: [{ urls: TURN_URLS, username, credential }],
+    ttl: TURN_TTL_SECONDS
+  });
 });
 
 app.get('/api/stats', (req, res) => {

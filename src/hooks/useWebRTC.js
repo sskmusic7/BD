@@ -1,4 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import config from '../config/config';
+
+const STUN_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
+
+// Fetched once per page load and reused. STUN alone can't get a path
+// through certain NAT/firewall pairs — ICE just goes "checking" ->
+// "disconnected" and you get a connected-looking call with no video. The
+// TURN relay is the fallback for exactly that case. Failing to fetch is
+// non-fatal: STUN-only still works on most networks.
+let iceServersPromise = null;
+
+function getIceServers() {
+  if (!iceServersPromise) {
+    iceServersPromise = fetch(`${config.SERVER_URL}/api/turn-credentials`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        const turnServers = data?.iceServers || [];
+        if (turnServers.length === 0) {
+          console.warn('No TURN relay configured — calls across restrictive networks may fail');
+        }
+        return [...STUN_SERVERS, ...turnServers];
+      })
+      .catch(err => {
+        console.error('Could not fetch TURN credentials, falling back to STUN only:', err.message);
+        return STUN_SERVERS;
+      });
+  }
+  return iceServersPromise;
+}
 
 const useWebRTC = (socket, sessionId, isInitiator) => {
   const [localStream, setLocalStream] = useState(null);
@@ -83,14 +115,9 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, []);
 
-  const createPeerConnection = useCallback((stream) => {
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-    const peerConnection = new RTCPeerConnection(config);
+  const createPeerConnection = useCallback(async (stream) => {
+    const iceServers = await getIceServers();
+    const peerConnection = new RTCPeerConnection({ iceServers });
     peerConnectionRef.current = peerConnection;
 
     // Add local stream tracks
@@ -143,7 +170,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     // when the real offer arrives — creating one here too would leave an
     // orphaned connection and pull in a second, disconnected media stream.
     if (isInitiator) {
-      const peerConnection = createPeerConnection(stream);
+      const peerConnection = await createPeerConnection(stream);
 
       // Whatever we couldn't capture locally, still ask to RECEIVE. An
       // offer only contains slots ("m-lines") for media it knows about, so
@@ -221,7 +248,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       // and the other side is already trickling candidates at us during it.
       // They're buffered rather than dropped — see handleIceCandidate.
       const stream = await initializeMedia();
-      const peerConnection = createPeerConnection(stream);
+      const peerConnection = await createPeerConnection(stream);
 
       try {
         await peerConnection.setRemoteDescription(data.offer);
