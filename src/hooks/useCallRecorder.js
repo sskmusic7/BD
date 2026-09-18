@@ -133,22 +133,45 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     }
 
     // Off-DOM canvas — never appended to the page, just drawn to and
-    // captured. Side-by-side to match the layout users already recognize.
+    // captured. Portrait 9:16 with the two people stacked, because these
+    // recordings are watched (and shared) on a phone; a landscape
+    // side-by-side frame wastes most of the screen there. Partner on top,
+    // you underneath, matching the "stacked" layout in the call itself.
     const canvas = document.createElement('canvas');
-    canvas.width = 1280;
-    canvas.height = 720;
+    canvas.width = 720;
+    canvas.height = 1280;
     const ctx = canvas.getContext('2d');
-    const halfWidth = canvas.width / 2;
+    const tileHeight = canvas.height / 2;
+    const tileAspect = canvas.width / tileHeight;
+
+    // Centre-crop each feed into its tile instead of stretching it. A
+    // webcam is a wide 16:9 (or 4:3) image and each tile here is taller
+    // than it is wide, so scaling to fit would squash faces noticeably —
+    // much more so than in the old wide layout, where the mismatch was
+    // small enough to get away with.
+    const drawCropped = (videoEl, destY) => {
+      const vw = videoEl.videoWidth;
+      const vh = videoEl.videoHeight;
+      if (!vw || !vh) return;
+
+      const sourceAspect = vw / vh;
+      let sx = 0, sy = 0, sw = vw, sh = vh;
+      if (sourceAspect > tileAspect) {
+        sw = vh * tileAspect;          // too wide — trim the sides
+        sx = (vw - sw) / 2;
+      } else {
+        sh = vw / tileAspect;          // too tall — trim top and bottom
+        sy = (vh - sh) / 2;
+      }
+
+      ctx.drawImage(videoEl, sx, sy, sw, sh, 0, destY, canvas.width, tileHeight);
+    };
 
     const draw = () => {
       ctx.fillStyle = '#111827';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (localVideoEl.videoWidth) {
-        ctx.drawImage(localVideoEl, 0, 0, halfWidth, canvas.height);
-      }
-      if (remoteVideoEl.videoWidth) {
-        ctx.drawImage(remoteVideoEl, halfWidth, 0, halfWidth, canvas.height);
-      }
+      drawCropped(remoteVideoEl, 0);
+      drawCropped(localVideoEl, tileHeight);
       rafIdRef.current = requestAnimationFrame(draw);
     };
     draw();
