@@ -24,20 +24,11 @@ import {
 } from 'lucide-react';
 import useWebRTC from '../hooks/useWebRTC';
 import useCallRecorder, { canRecordCalls } from '../hooks/useCallRecorder';
-import { useBackground } from '../context/BackgroundContext';
 import { playMessageSentTone, playMessageReceivedTone } from '../utils/sounds';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
-  // Get background with fallback
-  // Must match the bundled fallback in BackgroundContext — this is the one
-  // background shipped with the client, so it resolves even offline.
-  let currentBackground = '/backgrounds/lavender-gradient.jpg';
-  try {
-    const bgContext = useBackground();
-    currentBackground = bgContext.currentBackground || currentBackground;
-  } catch (error) {
-    console.warn('BackgroundContext not available, using default:', error);
-  }
+  // The background itself is painted once by BackgroundRenderer, which wraps
+  // this page — nothing to read here any more.
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [goals, setGoals] = useState({ user: '', partner: '' });
@@ -265,14 +256,10 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   };
 
   // Safety check for background
-  const backgroundStyle = {
-    background: currentBackground 
-      ? `url(${currentBackground}) no-repeat center center` 
-      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    backgroundSize: 'cover',
-    backgroundAttachment: 'fixed',
-    minHeight: '100vh'
-  };
+  // Empty on purpose: BackgroundRenderer wraps this page and paints a single
+  // fixed background layer for the whole app. Painting it again here stacked
+  // a second, differently-cropped copy on top — the seam visible on mobile.
+  const backgroundStyle = { minHeight: '100vh' };
 
   // The call has ended (either party) with a recording in flight — hold
   // here until it finishes processing so there's actually a chance to grab

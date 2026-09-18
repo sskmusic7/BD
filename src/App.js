@@ -17,15 +17,23 @@ import { playConnectedChime, playDisconnectedTone } from './utils/sounds';
 
 // The gallery is stills only now — animated backgrounds were a distraction
 // during study sessions, and the video/GIF ones cost 173MB of bundle.
+//
+// The image is painted by a fixed, full-viewport layer sitting behind the
+// content rather than as this element's own background. Two reasons:
+// `background-attachment: fixed` is unreliable on iOS Safari, and the page
+// components used to paint the same image again inside this one — two
+// different "cover" crops of one image stacked, which showed as a seam
+// partway down the page on mobile. One layer, one crop, everywhere.
 const BackgroundRenderer = ({ children }) => {
   const { currentBackground } = useBackground();
 
   return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover',
-      backgroundAttachment: 'fixed'
-    }}>
+    <div className="min-h-screen relative">
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 -z-10 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: `url(${currentBackground})` }}
+      />
       {children}
     </div>
   );

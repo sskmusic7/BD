@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, MessageCircle, Clock, Search, Link } from 'lucide-react';
-import { useBackground } from '../context/BackgroundContext';
 
 const FriendsPage = ({ socket, user, useConvex, convexFriends, createInviteLink }) => {
   const [inviteCopied, setInviteCopied] = useState(false);
-  const { currentBackground } = useBackground();
   const [friends, setFriends] = useState([]);
   const [invites, setInvites] = useState([]);
 
@@ -67,11 +65,9 @@ const FriendsPage = ({ socket, user, useConvex, convexFriends, createInviteLink 
     setInvites(prev => prev.filter(i => i.inviteId !== inviteId));
   };
 
+  // Background comes from BackgroundRenderer — see HomePage.
   return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover'
-    }}>
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">

@@ -264,16 +264,24 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
 
   // Reassign srcObject when video refs change (e.g., layout changes).
   // Shows the screen share instead of the camera while one is active.
+  //
+  // Deliberately has no dependency array — it has to re-check after every
+  // render because switching layout swaps in a different <video> element.
+  // But it MUST NOT reassign a stream the element already has: doing so
+  // resets the element's pipeline and blanks it for a frame. This effect
+  // runs every render, and the recording timer re-renders once a second, so
+  // the unguarded version produced a black flash every second — visible in
+  // the call and baked into recordings (11 dark frames in a 10s capture).
   useEffect(() => {
     if (!localVideoRef.current) return;
     const desiredStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
-    if (desiredStream) {
+    if (desiredStream && localVideoRef.current.srcObject !== desiredStream) {
       localVideoRef.current.srcObject = desiredStream;
     }
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
+    if (remoteVideoRef.current && remoteStream && remoteVideoRef.current.srcObject !== remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

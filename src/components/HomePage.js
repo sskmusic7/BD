@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Clock, Brain, Heart, Zap } from 'lucide-react';
 import config from '../config/config';
-import { useBackground } from '../context/BackgroundContext';
 import { startSearchingLoop, stopSearchingLoop } from '../utils/sounds';
 
 const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () => {}, onCreateRoom = null, onRejoinRoom = null }) => {
-  const { currentBackground } = useBackground();
   const [stats, setStats] = useState({ onlineUsers: 0, activeSessions: 0 });
   const lastRoomCode = typeof window !== 'undefined' ? localStorage.getItem('bd_last_room_code') : null;
 
@@ -67,12 +65,12 @@ const HomePage = ({ socket, user, isSearching = false, onSearchingChange = () =>
     }
   ];
 
+  // No background painted here on purpose — BackgroundRenderer paints one
+  // fixed layer for the whole app. Painting it again at this element's own
+  // height produced a second, differently-cropped copy of the same image and
+  // a visible seam on mobile, where iOS ignores background-attachment: fixed.
   return (
-    <div className="min-h-screen" style={{
-      background: `url(${currentBackground}) no-repeat center center`,
-      backgroundSize: 'cover',
-      minHeight: '100vh'
-    }}>
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Hero Section */}
       <div className="text-center mb-12">

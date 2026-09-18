@@ -39,7 +39,11 @@ body {
 
 
 
-/* Add a subtle overlay to ensure text readability */
+/* Subtle DARK scrim so the white text stays readable over light photos.
+   This used to be a white 10% wash, which lightened pale backgrounds
+   further and made white headings almost invisible — worst on mobile,
+   where a narrow viewport crops a landscape photo down to its middle
+   strip and that strip is often bright sky. */
 body::before {
   content: '';
   position: fixed;
@@ -47,7 +51,7 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.28);
   pointer-events: none;
   z-index: -1;
 }

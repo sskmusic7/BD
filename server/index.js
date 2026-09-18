@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { execSync, execFile } = require('child_process');
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -184,16 +184,55 @@ app.post('/api/recordings/:id/chunk', express.raw({ type: '*/*', limit: '10mb' }
   });
 });
 
+// Rewrites the finished recording into a proper MP4 container.
+//
+// The file on disk is raw MediaRecorder chunks appended one after another,
+// so it has no index (moov atom) describing where frames live. It plays
+// fine from the start, but scrubbing glitches or shows black in players
+// that rely on that index — including QuickTime and some editors.
+//
+// `-c copy` re-packages the existing audio and video streams untouched: no
+// re-encoding, no quality loss, and a second or two of CPU rather than the
+// many minutes a real encode would cost on a single shared core.
+// `+faststart` moves the index to the front so the file can be played or
+// scrubbed before it has fully downloaded.
+function remuxRecording(filePath, done) {
+  const fixedPath = `${filePath}.fixed.mp4`;
+  execFile(
+    'ffmpeg',
+    ['-y', '-loglevel', 'error', '-i', filePath, '-c', 'copy', '-movflags', '+faststart', fixedPath],
+    (err) => {
+      if (err) {
+        // Non-fatal: the original is still a playable file, just without a
+        // clean index. Better to hand back something than nothing.
+        console.error('Remux failed, serving the raw recording:', err.message);
+        fs.unlink(fixedPath, () => done());
+        return;
+      }
+      fs.rename(fixedPath, filePath, (renameErr) => {
+        if (renameErr) console.error('Could not replace recording with remuxed copy:', renameErr.message);
+        done();
+      });
+    }
+  );
+}
+
 app.post('/api/recordings/:id/finish', (req, res) => {
   const filePath = recordingFilePath(req.params.id);
   if (!filePath) {
     return res.status(400).json({ error: 'Invalid recording id' });
   }
-  fs.stat(filePath, (err, stats) => {
+  fs.stat(filePath, (err) => {
     if (err) {
       return res.status(404).json({ error: 'Recording not found' });
     }
-    res.json({ ok: true, size: stats.size });
+    remuxRecording(filePath, () => {
+      // Re-stat after the remux: the container rewrite changes the size.
+      fs.stat(filePath, (statErr, stats) => {
+        if (statErr) return res.status(404).json({ error: 'Recording not found' });
+        res.json({ ok: true, size: stats.size });
+      });
+    });
   });
 });
 
