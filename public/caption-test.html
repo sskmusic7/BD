@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BodyDouble — Caption Support Test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #0f172a; color: #e2e8f0;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+  .card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #334155; }
+  .row:last-child { border-bottom: 0; }
+  .row span:first-child { color: #94a3b8; }
+  .val { font-weight: 600; text-align: right; }
+  .yes { color: #4ade80; } .no { color: #f87171; } .wait { color: #fbbf24; }
+  button {
+    width: 100%; padding: 17px; font-size: 17px; font-weight: 600;
+    border: 0; border-radius: 12px; background: #3b82f6; color: #fff; cursor: pointer;
+    -webkit-appearance: none;
+  }
+  button:disabled { background: #475569; color: #94a3b8; }
+  button.stop { background: #ef4444; }
+  #transcript {
+    min-height: 90px; background: #0f172a; border: 1px solid #334155;
+    border-radius: 10px; padding: 12px; margin-top: 12px; font-size: 15px;
+  }
+  #interim { color: #64748b; font-style: italic; }
+  #verdict { font-size: 15px; line-height: 1.55; }
+  .muted { color: #64748b; font-size: 13px; margin-top: 14px; }
+  code { background: #0f172a; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Caption support test</h1>
+<div class="sub">Checks whether this device can transcribe speech in the browser — which decides how captions get added to your recordings.</div>
+
+<div class="card">
+  <div class="row"><span>Browser</span><span class="val" id="browser">—</span></div>
+  <div class="row"><span>Speech recognition API</span><span class="val" id="api">—</span></div>
+  <div class="row"><span>Microphone</span><span class="val" id="mic">—</span></div>
+  <div class="row"><span>Results received</span><span class="val" id="results">—</span></div>
+  <div class="row"><span>Live (interim) text</span><span class="val" id="interimSupport">—</span></div>
+  <div class="row"><span>Ran without dropping</span><span class="val" id="stability">—</span></div>
+</div>
+
+<button id="btn">Start test</button>
+
+<div class="card" style="margin-top:14px">
+  <div style="color:#94a3b8;font-size:13px;margin-bottom:6px">Say a sentence or two out loud</div>
+  <div id="transcript"><span id="final"></span> <span id="interim"></span></div>
+</div>
+
+<div class="card"><div id="verdict">Tap <b>Start test</b>, allow the microphone, and talk for about 20 seconds.</div></div>
+
+<div class="muted">Nothing is uploaded or stored by this page. Note that on Chrome, speech recognition is processed on Google's servers.</div>
+
+<script>
+(function () {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var el = function (id) { return document.getElementById(id); };
+  var set = function (id, text, cls) {
+    var n = el(id); n.textContent = text; n.className = 'val' + (cls ? ' ' + cls : '');
+  };
+
+  var ua = navigator.userAgent;
+  var browser = /CriOS/.test(ua) ? 'Chrome on iOS'
+    : /FxiOS/.test(ua) ? 'Firefox on iOS'
+    : /iPhone|iPad|iPod/.test(ua) ? 'Safari on iOS'
+    : /Android/.test(ua) ? 'Android'
+    : /Firefox/.test(ua) ? 'Firefox'
+    : /Edg/.test(ua) ? 'Edge'
+    : /Chrome/.test(ua) ? 'Chrome'
+    : /Safari/.test(ua) ? 'Safari' : 'Unknown';
+  set('browser', browser);
+  set('api', SR ? 'Available' : 'Not available', SR ? 'yes' : 'no');
+
+  // iOS is the case that matters: Chrome and Firefox on iPhone are Safari
+  // underneath, so the result is about iOS itself, not the browser you chose.
+  if (!SR) {
+    el('btn').disabled = true;
+    el('verdict').innerHTML = '<b class="no">No speech recognition on this device.</b><br>'
+      + 'Free in-browser captions are not possible here. Captions would need to be '
+      + 'transcribed by a paid service after the call instead.';
+    return;
+  }
+
+  var recog = new SR();
+  recog.continuous = true;
+  recog.interimResults = true;
+  recog.lang = 'en-GB';
+
+  var running = false, gotFinal = 0, gotInterim = false, startedAt = 0, endedEarly = false, lastError = '';
+
+  function finish(reason) {
+    running = false;
+    el('btn').textContent = 'Run again';
+    el('btn').className = '';
+    var secs = Math.round((Date.now() - startedAt) / 1000);
+    set('stability', secs + 's' + (endedEarly ? ' (dropped out)' : ''), endedEarly ? 'wait' : 'yes');
+
+    var verdict;
+    if (gotFinal > 0) {
+      verdict = '<b class="yes">Works on this device.</b><br>Captions can be generated free, live during the call, '
+        + 'and painted straight into the recording — no extra wait, no cost, and nothing re-encoded afterwards.';
+      if (endedEarly) {
+        verdict += '<br><br><span class="wait">It did stop on its own partway through</span>, which is common on iOS. '
+          + 'Workable — it just needs restarting automatically during a call.';
+      }
+    } else if (lastError === 'not-allowed' || lastError === 'service-not-allowed') {
+      verdict = '<b class="no">Microphone permission was blocked.</b><br>Allow the mic and run it again.';
+    } else if (lastError === 'network') {
+      verdict = '<b class="no">Recognition needs a network connection and could not reach the service.</b>';
+    } else {
+      verdict = '<b class="no">The API exists but returned no text' + (lastError ? ' (' + lastError + ')' : '') + '.</b><br>'
+        + 'This is the usual iOS outcome. Captions would need a paid transcription service after the call.';
+    }
+    el('verdict').innerHTML = verdict + '<div class="muted">' + reason + '</div>';
+  }
+
+  recog.onstart = function () { set('mic', 'Listening', 'yes'); };
+  recog.onaudiostart = function () { set('mic', 'Receiving audio', 'yes'); };
+  recog.onerror = function (e) {
+    lastError = e.error || 'unknown';
+    set('results', 'Error: ' + lastError, 'no');
+  };
+  recog.onend = function () {
+    if (running) { endedEarly = true; finish('Recognition ended by itself.'); }
+  };
+  recog.onresult = function (event) {
+    var finalText = el('final').textContent, interim = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      var r = event.results[i];
+      if (r.isFinal) { finalText += r[0].transcript + ' '; gotFinal++; }
+      else { interim += r[0].transcript; gotInterim = true; }
+    }
+    el('final').textContent = finalText;
+    el('interim').textContent = interim;
+    set('results', gotFinal + ' phrase' + (gotFinal === 1 ? '' : 's'), gotFinal ? 'yes' : 'wait');
+    set('interimSupport', gotInterim ? 'Yes' : 'Not seen', gotInterim ? 'yes' : 'wait');
+  };
+
+  el('btn').onclick = function () {
+    if (running) { running = false; recog.stop(); finish('Stopped by you.'); return; }
+
+    el('final').textContent = ''; el('interim').textContent = '';
+    gotFinal = 0; gotInterim = false; endedEarly = false; lastError = '';
+    set('results', 'Waiting…', 'wait'); set('interimSupport', 'Waiting…', 'wait');
+    set('stability', 'Running…', 'wait'); set('mic', 'Requesting…', 'wait');
+    el('verdict').textContent = 'Listening — say a sentence or two.';
+    el('btn').textContent = 'Stop test'; el('btn').className = 'stop';
+
+    running = true; startedAt = Date.now();
+    try { recog.start(); } catch (err) {
+      running = false; lastError = err.message; finish('Could not start: ' + err.message);
+    }
+
+    // 30s is plenty to tell whether it works and whether it stays alive.
+    setTimeout(function () { if (running) { running = false; recog.stop(); finish('Reached the 30 second mark.'); } }, 30000);
+  };
+})();
+</script>
+</body>
+</html>
