@@ -64,7 +64,7 @@ const BackgroundSelector = () => {
               </div>
               <div className="relative w-full h-32 rounded-lg overflow-hidden border-2 border-blue-500">
                 <img
-                  src={backgrounds[currentIndex].path}
+                  src={backgrounds[currentIndex].url}
                   alt={currentBackgroundName}
                   className="w-full h-full object-cover"
                 />
@@ -88,9 +88,13 @@ const BackgroundSelector = () => {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
+                    {/* Thumbnail, not the full image — the grid used to pull
+                        every full-size background (two of them 80MB and 43MB
+                        GIFs) every time this opened. */}
                     <img
-                      src={bg.path}
+                      src={bg.thumbUrl}
                       alt={bg.name}
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors" />

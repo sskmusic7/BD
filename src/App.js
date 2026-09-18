@@ -15,32 +15,14 @@ import { playConnectedChime, playDisconnectedTone } from './utils/sounds';
 // import AuthScreen from './components/AuthScreen';
 // import { Authenticated, Unauthenticated } from 'convex/react';
 
-// Background renderer component that handles both image/gif and video
+// The gallery is stills only now — animated backgrounds were a distraction
+// during study sessions, and the video/GIF ones cost 173MB of bundle.
 const BackgroundRenderer = ({ children }) => {
-  const { backgrounds, currentIndex } = useBackground();
-  const currentBg = backgrounds[currentIndex];
-
-  if (currentBg.type === 'video') {
-    return (
-      <div className="min-h-screen relative">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover -z-10"
-          style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}
-        >
-          <source src={currentBg.path} type="video/mp4" />
-        </video>
-        {children}
-      </div>
-    );
-  }
+  const { currentBackground } = useBackground();
 
   return (
     <div className="min-h-screen" style={{
-      background: `url(${currentBg.path}) no-repeat center center`,
+      background: `url(${currentBackground}) no-repeat center center`,
       backgroundSize: 'cover',
       backgroundAttachment: 'fixed'
     }}>

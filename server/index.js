@@ -207,6 +207,51 @@ app.get('/api/recordings/:id/download', (req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
+// Background gallery. These live in server/assets (NOT server/data) on
+// purpose: server/data is a Docker named volume on the droplet, so anything
+// shipped there is shadowed by the existing volume contents and would never
+// update on deploy. assets/ is part of the image, so a rebuild picks it up.
+//
+// Curated offline by scripts/curate-backgrounds.js. Previously the client
+// bundled 173MB of GIFs/video for this — including an 80MB GIF that the
+// picker loaded as a *thumbnail* every time it opened.
+const BACKGROUNDS_DIR = path.join(__dirname, 'assets', 'backgrounds');
+
+app.use('/backgrounds', express.static(BACKGROUNDS_DIR, {
+  // Filenames are stable per image, and the set only changes when the
+  // curation script is re-run and redeployed, so a day of caching is safe
+  // and keeps repeat visits off the network entirely.
+  maxAge: '1d',
+}));
+
+app.get('/api/backgrounds', (req, res) => {
+  const manifestPath = path.join(BACKGROUNDS_DIR, 'manifest.json');
+  fs.readFile(manifestPath, 'utf8', (err, raw) => {
+    if (err) {
+      console.error('Background manifest unreadable:', err.message);
+      // The client keeps a bundled fallback image, so an empty list
+      // degrades to "one background" rather than a broken page.
+      return res.json({ backgrounds: [] });
+    }
+    try {
+      const { backgrounds } = JSON.parse(raw);
+      res.json({
+        backgrounds: backgrounds.map(b => ({
+          id: b.id,
+          name: b.name,
+          vibe: b.vibe,
+          url: `/backgrounds/${b.file}`,
+          thumbUrl: `/backgrounds/${b.thumb}`,
+          credit: b.credit || null,
+        })),
+      });
+    } catch (parseErr) {
+      console.error('Background manifest malformed:', parseErr.message);
+      res.json({ backgrounds: [] });
+    }
+  });
+});
+
 app.use(express.json());
 
 // Handle preflight requests

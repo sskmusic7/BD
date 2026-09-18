@@ -1,0 +1,146 @@
+{
+  "updated": "2026-09-18T02:20:02.497Z",
+  "backgrounds": [
+    {
+      "id": "lavender-gradient",
+      "name": "Lavender Gradient",
+      "vibe": "abstract",
+      "file": "lavender-gradient.jpg",
+      "thumb": "lavender-gradient-thumb.jpg",
+      "bytes": 102229
+    },
+    {
+      "id": "bokeh-foliage",
+      "name": "Bokeh Foliage",
+      "vibe": "abstract",
+      "file": "bokeh-foliage.jpg",
+      "thumb": "bokeh-foliage-thumb.jpg",
+      "bytes": 87760
+    },
+    {
+      "id": "cosy-cabin",
+      "name": "Cabin by the Lake",
+      "vibe": "nature",
+      "file": "cosy-cabin.jpg",
+      "thumb": "cosy-cabin-thumb.jpg",
+      "bytes": 192144
+    },
+    {
+      "id": "misty-forest",
+      "vibe": "nature",
+      "file": "misty-forest.jpg",
+      "thumb": "misty-forest-thumb.jpg",
+      "bytes": 162923,
+      "name": "Foggy Trees",
+      "credit": {
+        "photographer": "Kyle Glenn",
+        "url": "https://unsplash.com/@kylejglenn",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "calm-lake",
+      "vibe": "nature",
+      "file": "calm-lake.jpg",
+      "thumb": "calm-lake-thumb.jpg",
+      "bytes": 70770,
+      "name": "Llyn Padarn With Snowdonia",
+      "credit": {
+        "photographer": "Neil Thomas",
+        "url": "https://unsplash.com/@neilthomas",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "study-desk",
+      "vibe": "interior",
+      "file": "study-desk.jpg",
+      "thumb": "study-desk-thumb.jpg",
+      "bytes": 384543,
+      "name": "Light Filled Study Nook",
+      "credit": {
+        "photographer": "Chris Vasquez",
+        "url": "https://unsplash.com/@helmhammerchris",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "reading-room",
+      "vibe": "interior",
+      "file": "reading-room.jpg",
+      "thumb": "reading-room-thumb.jpg",
+      "bytes": 310729,
+      "name": "A Grand Home Library",
+      "credit": {
+        "photographer": "Brett Wharton",
+        "url": "https://unsplash.com/@brettwharton",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "plant-room",
+      "vibe": "interior",
+      "file": "plant-room.jpg",
+      "thumb": "plant-room-thumb.jpg",
+      "bytes": 376019,
+      "name": "Green Plant On Brown",
+      "credit": {
+        "photographer": "Joana Abreu",
+        "url": "https://unsplash.com/@joanacabreu",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "soft-gradient",
+      "vibe": "abstract",
+      "file": "soft-gradient.jpg",
+      "thumb": "soft-gradient-thumb.jpg",
+      "bytes": 152441,
+      "name": "Unique Mesh Fluid Gradient",
+      "credit": {
+        "photographer": "MagicPattern",
+        "url": "https://unsplash.com/@magicpattern",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "muted-texture",
+      "vibe": "abstract",
+      "file": "muted-texture.jpg",
+      "thumb": "muted-texture-thumb.jpg",
+      "bytes": 460775,
+      "name": "Soft Orange Grey Background,",
+      "credit": {
+        "photographer": "Universtock",
+        "url": "https://unsplash.com/@universtock",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "starry-night",
+      "vibe": "night",
+      "file": "starry-night.jpg",
+      "thumb": "starry-night-thumb.jpg",
+      "bytes": 209562,
+      "name": "Summer Night Sky Full",
+      "credit": {
+        "photographer": "Joshua Woroniecki",
+        "url": "https://unsplash.com/@joshuaworoniecki",
+        "source": "Unsplash"
+      }
+    },
+    {
+      "id": "moody-forest",
+      "vibe": "night",
+      "file": "moody-forest.jpg",
+      "thumb": "moody-forest-thumb.jpg",
+      "bytes": 169544,
+      "name": "Very Foggy Forest Scene",
+      "credit": {
+        "photographer": "Taylor Wright",
+        "url": "https://unsplash.com/@taylorwright22",
+        "source": "Unsplash"
+      }
+    }
+  ]
+}

@@ -29,7 +29,9 @@ import { playMessageSentTone, playMessageReceivedTone } from '../utils/sounds';
 
 const SessionPage = ({ socket, session, user, onEndSession }) => {
   // Get background with fallback
-  let currentBackground = '/backgrounds/Make_the_water_clearer_looping.gif'; // Default fallback
+  // Must match the bundled fallback in BackgroundContext — this is the one
+  // background shipped with the client, so it resolves even offline.
+  let currentBackground = '/backgrounds/lavender-gradient.jpg';
   try {
     const bgContext = useBackground();
     currentBackground = bgContext.currentBackground || currentBackground;
