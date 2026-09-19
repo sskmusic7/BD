@@ -213,10 +213,11 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
   const addFriend = () => {
     if (socket && session.partner) {
       console.log('Adding friend:', session.partner);
-      // Use the socket ID from the partner object
-      const partnerSocketId = session.partner.id || session.partner.socketId;
-      if (partnerSocketId) {
-        socket.emit('add-friend', partnerSocketId);
+      // The partner's STABLE id. It used to fall back to socketId, which the
+      // server then failed to resolve — see the add-friend handler.
+      const partnerUserId = session.partner.id;
+      if (partnerUserId) {
+        socket.emit('add-friend', partnerUserId);
         // Add visual feedback
         alert('Friend request sent! Check your friends list.');
       } else {

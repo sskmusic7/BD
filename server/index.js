@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync, execFile } = require('child_process');
+const { createPush } = require('./push');
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -291,7 +292,19 @@ app.get('/api/backgrounds', (req, res) => {
   });
 });
 
+// Created here, above its first use. getConnectedUserIds is a hoisted
+// function declaration, so it can live further down next to the user state
+// it reads.
+const push = createPush({ dataDir: DATA_DIR, getConnectedUserIds });
+if (!push.configured) {
+  console.log('Push notifications disabled (no VAPID keys configured)');
+}
+
 app.use(express.json());
+
+// Push routes need the JSON body parser, so they go after it. (The
+// before-json rule applies only to the raw-body recording chunk route.)
+push.registerRoutes(app);
 
 // Handle preflight requests
 app.options('*', (req, res) => {
@@ -311,6 +324,77 @@ const users = loadPersistentData();
 const waitingQueue = [];
 const activeSessions = new Map();
 const friendships = loadFriendships();
+
+// Who is genuinely here right now, derived from live sockets rather than the
+// persisted isOnline flag — that flag survives an unclean shutdown as a
+// stale `true` and would make the app think people are around when they
+// aren't, firing notifications about phantom users.
+function getConnectedUserIds() {
+  const ids = new Set();
+  for (const [socketId, user] of users) {
+    if (io.sockets.sockets.has(socketId) && user.id) ids.add(user.id);
+  }
+  return ids;
+}
+
+// Notifies everyone subscribed except the person who caused the event.
+// push.notify() applies the rest of the suppression rules (already-open,
+// cooldowns, quiet hours, per-trigger preferences).
+// A match often lands a second or two after someone starts waiting, and a
+// "come and join them!" push about a person who is already paired up is
+// worse than no push at all. So hold the notification briefly and drop it if
+// they stop waiting in the meantime.
+const WAITING_NOTIFY_DELAY_MS = 20 * 1000;
+const pendingWaitingNotifications = new Map(); // userId -> timeout
+
+function cancelWaitingNotification(userId) {
+  const timeout = pendingWaitingNotifications.get(userId);
+  if (timeout) {
+    clearTimeout(timeout);
+    pendingWaitingNotifications.delete(userId);
+  }
+}
+
+function scheduleWaitingNotification(waitingUser) {
+  if (!push.configured) return;
+  cancelWaitingNotification(waitingUser.id);
+
+  const timeout = setTimeout(() => {
+    pendingWaitingNotifications.delete(waitingUser.id);
+    // Still unmatched, still queued?
+    const stillWaiting = waitingQueue.some(u => u.id === waitingUser.id) && !waitingUser.currentSession;
+    if (!stillWaiting) return;
+
+    notifyOthers({
+      type: 'partnerWaiting',
+      actorUserId: waitingUser.id,
+      title: 'Someone wants to focus',
+      body: `${waitingUser.name || 'Someone'} is waiting for a body doubling partner.`,
+      url: '/',
+      tag: 'partner-waiting',
+    });
+  }, WAITING_NOTIFY_DELAY_MS);
+
+  pendingWaitingNotifications.set(waitingUser.id, timeout);
+}
+
+function notifyOthers({ type, actorUserId, title, body, url, tag }) {
+  if (!push.configured) return;
+  push
+    .notify({
+      type,
+      recipientIds: push.subscribedUserIds(),
+      excludeUserIds: actorUserId ? [actorUserId] : [],
+      title,
+      body,
+      url,
+      tag,
+    })
+    .then((notified) => {
+      if (notified.length) console.log(`Push "${type}" sent to ${notified.length} user(s)`);
+    })
+    .catch((err) => console.error('Push dispatch failed:', err.message));
+}
 
 // Grace period (ms) before a disconnected user's active session is torn
 // down. Socket.IO reconnects (mobile network blips, tab backgrounding,
@@ -365,6 +449,7 @@ function findUserByUserId(userId) {
 setInterval(() => {
   saveUsers(users);
   saveFriendships(friendships);
+  push.save();
 }, 30000);
 
 // Save data on graceful shutdown
@@ -372,6 +457,7 @@ process.on('SIGINT', () => {
   console.log('Saving data before shutdown...');
   saveUsers(users);
   saveFriendships(friendships);
+  push.save();
   process.exit(0);
 });
 
@@ -381,6 +467,9 @@ io.on('connection', (socket) => {
 
   // User joins with profile info
   socket.on('join', (userData) => {
+    // Captured before the join so we can tell a genuine arrival from a
+    // reconnect of someone already counted.
+    const connectedBefore = getConnectedUserIds();
     // Check if user already exists by userId (for reconnection)
     let existingUser = null;
     let oldSocketId = null;
@@ -509,6 +598,41 @@ io.on('connection', (socket) => {
     
     // Save users after modification
     saveUsers(users);
+
+    // Triggers (b) "someone else is around" and (c) "a friend came online".
+    // Both only make sense for a genuine arrival — a reconnect from someone
+    // already counted shouldn't announce them again.
+    const joiner = users.get(socket.id);
+    if (joiner && !connectedBefore.has(joiner.id)) {
+      const others = getConnectedUserIds();
+      others.delete(joiner.id);
+
+      const friendIds = Array.from(friendships.get(joiner.id) || []);
+      if (friendIds.length) {
+        push.notify({
+          type: 'friendOnline',
+          recipientIds: friendIds,
+          excludeUserIds: [joiner.id],
+          title: `${joiner.name || 'A friend'} is online`,
+          body: 'Your focus buddy just came online.',
+          url: '/',
+          tag: 'friend-online',
+        }).catch(err => console.error('Push dispatch failed:', err.message));
+      }
+
+      // Only worth announcing when they are not alone — "1 person online"
+      // is not a reason to come back.
+      if (others.size >= 1) {
+        notifyOthers({
+          type: 'someoneOnline',
+          actorUserId: joiner.id,
+          title: 'People are focusing',
+          body: `${others.size + 1} people are online in BodyDouble right now.`,
+          url: '/',
+          tag: 'someone-online',
+        });
+      }
+    }
   });
 
   // Find random partner
@@ -605,6 +729,9 @@ io.on('connection', (socket) => {
       }
       
       console.log(`Matched: ${currentUser.name} <-> ${partnerUser.name} (session: ${sessionId})`);
+      // Both are now in a call — neither should be advertised as waiting.
+      cancelWaitingNotification(currentUser.id);
+      cancelWaitingNotification(partnerUser.id);
       
     } else {
       // Add to waiting queue
@@ -612,6 +739,7 @@ io.on('connection', (socket) => {
       socket.emit('waiting-for-partner');
       console.log(`User ${currentUser.name} added to waiting queue (${waitingQueue.length} waiting)`);
       console.log('Waiting queue after:', waitingQueue.map(u => `${u.name} (${u.id})`));
+      scheduleWaitingNotification(currentUser);
     }
   });
 
@@ -619,7 +747,8 @@ io.on('connection', (socket) => {
   socket.on('cancel-search', () => {
     const index = waitingQueue.findIndex(u => u.socketId === socket.id);
     if (index > -1) {
-      waitingQueue.splice(index, 1);
+      const [removed] = waitingQueue.splice(index, 1);
+      if (removed) cancelWaitingNotification(removed.id);
       socket.emit('search-cancelled');
     }
   });
@@ -710,43 +839,50 @@ io.on('connection', (socket) => {
   });
 
   // Add friend
-  socket.on('add-friend', (friendId) => {
+  // Keyed by STABLE user id, not socket.id.
+  //
+  // This never worked before: the client sends the partner's stable id, but
+  // this looked it up with users.get() — a socket.id-keyed map — so the
+  // lookup missed and the handler silently did nothing. No friendship was
+  // ever stored, which is why friendships.json is an empty object. Even had
+  // it matched, storing socket ids would have broken the moment either side
+  // reconnected, since socket ids change every time. invite-friend and
+  // accept-invite below already used findUserByUserId correctly; these two
+  // were the odd ones out.
+  socket.on('add-friend', (friendUserId) => {
     const currentUser = users.get(socket.id);
-    const friend = users.get(friendId);
-    
-    if (currentUser && friend) {
-      // Add to friendships
-      if (!friendships.has(socket.id)) {
-        friendships.set(socket.id, new Set());
-      }
-      if (!friendships.has(friendId)) {
-        friendships.set(friendId, new Set());
-      }
-      
-      friendships.get(socket.id).add(friendId);
-      friendships.get(friendId).add(socket.id);
-      
-      // Save friendships after modification
-      saveFriendships(friendships);
-      
-      // Notify both users
-      socket.emit('friend-added', friend);
-      io.to(friendId).emit('friend-added', currentUser);
-      
-      console.log(`Friendship added: ${currentUser.name} <-> ${friend.name}`);
-    }
+    const friend = findUserByUserId(friendUserId);
+
+    if (!currentUser || !friend || friend.id === currentUser.id) return;
+
+    if (!friendships.has(currentUser.id)) friendships.set(currentUser.id, new Set());
+    if (!friendships.has(friend.id)) friendships.set(friend.id, new Set());
+
+    friendships.get(currentUser.id).add(friend.id);
+    friendships.get(friend.id).add(currentUser.id);
+    saveFriendships(friendships);
+
+    socket.emit('friend-added', friend);
+    // Deliver to the socket the friend happens to be on right now — stable
+    // id for storage, ephemeral id for delivery.
+    io.to(friend.socketId).emit('friend-added', currentUser);
+
+    console.log(`Friendship added: ${currentUser.name} <-> ${friend.name}`);
   });
 
   // Get friends list
   socket.on('get-friends', () => {
-    const userFriends = friendships.get(socket.id) || new Set();
-    const friendsList = Array.from(userFriends).map(friendId => {
-      const friend = users.get(friendId);
-      return friend ? { ...friend, isOnline: friend.isOnline } : null;
-    }).filter(Boolean);
-    
+    const currentUser = users.get(socket.id);
+    if (!currentUser) return;
+
+    const userFriends = friendships.get(currentUser.id) || new Set();
+    const friendsList = Array.from(userFriends)
+      .map(friendUserId => findUserByUserId(friendUserId))
+      .filter(Boolean)
+      .map(friend => ({ ...friend, isOnline: !!friend.isOnline }));
+
     socket.emit('friends-list', friendsList);
-    console.log(`Friends list sent to ${users.get(socket.id)?.name}:`, friendsList.length, 'friends');
+    console.log(`Friends list sent to ${currentUser.name}:`, friendsList.length, 'friends');
   });
 
   // Invite friend to session
@@ -888,6 +1024,19 @@ io.on('connection', (socket) => {
     const creatorSocket = io.sockets.sockets.get(creator.socketId);
     if (creatorSocket) {
       creatorSocket.emit('partner-found', { partner: currentUser, sessionId: roomCode });
+    } else {
+      // The creator isn't connected — they sent the link and wandered off.
+      // This is the trigger that matters most: without it they never learn
+      // anyone turned up. The URL is the room itself, so tapping the
+      // notification drops them straight into the call.
+      push.notify({
+        type: 'inviteOpened',
+        recipientIds: [creator.id],
+        title: 'Someone joined your call',
+        body: `${currentUser.name || 'Someone'} opened your invite link and is waiting.`,
+        url: `/room/${roomCode}`,
+        tag: `invite-${roomCode}`,
+      }).catch(err => console.error('Push dispatch failed:', err.message));
     }
   });
 
@@ -933,6 +1082,7 @@ io.on('connection', (socket) => {
       const queueIndex = waitingQueue.findIndex(u => u.socketId === socket.id);
       if (queueIndex > -1) {
         waitingQueue.splice(queueIndex, 1);
+        cancelWaitingNotification(user.id);
         console.log(`Removed ${user.name} from waiting queue`);
       }
       

@@ -1,15 +1,26 @@
 {
   "redirects": [
     {
-      "source": "/",
+      "source": "/(.*)",
       "has": [
         {
           "type": "host",
           "value": "www.bodydoubleapp.com"
         }
       ],
-      "destination": "https://bodydoubleapp.com",
+      "destination": "https://bodydoubleapp.com/$1",
       "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ]
 }

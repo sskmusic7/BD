@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Home, LogOut } from 'lucide-react';
+import { Users, Home, LogOut, Bell } from 'lucide-react';
+import NotificationSettings from './NotificationSettings';
 
 const Navbar = ({ user, onLogout }) => {
   const location = useLocation();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
@@ -48,6 +50,14 @@ const Navbar = ({ user, onLogout }) => {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
+              title="Notification settings"
+              aria-label="Notification settings"
+            >
+              <Bell className="w-4 h-4" />
+            </button>
             <div className="text-white/90">
               <span className="font-medium">{user?.name}</span>
             </div>
@@ -61,6 +71,10 @@ const Navbar = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
+
+      {showNotifications && user && (
+        <NotificationSettings user={user} onClose={() => setShowNotifications(false)} />
+      )}
     </nav>
   );
 };
