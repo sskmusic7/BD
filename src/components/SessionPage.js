@@ -65,6 +65,7 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     isScreenSharing,
     isBlurEnabled,
     isBlurLoading,
+    blurError,
     canBlur,
     toggleVideo,
     toggleAudio,
@@ -308,6 +309,11 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
 
   return (
     <div className="min-h-screen" style={backgroundStyle}>
+      {blurError && (
+        <div className="fixed bottom-4 inset-x-4 z-50 mx-auto max-w-md bg-red-600/95 text-white text-sm rounded-xl px-4 py-3 shadow-2xl">
+          {blurError}
+        </div>
+      )}
       <div className="max-w-6xl mx-auto p-4">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6">

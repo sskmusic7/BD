@@ -43,6 +43,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const [connectionState, setConnectionState] = useState('new');
   const [isBlurEnabled, setIsBlurEnabled] = useState(false);
   const [isBlurLoading, setIsBlurLoading] = useState(false);
+  // Separate from mediaError on purpose: mediaError blacks out the whole
+  // video tile with a "camera off" overlay, so reusing it for a blur
+  // failure makes it look like the camera died.
+  const [blurError, setBlurError] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -539,6 +543,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
 
     setIsBlurLoading(true);
+    setBlurError(null);
     try {
       const pipeline = await startBlur(cameraTrack);
       blurRef.current = pipeline;
@@ -556,7 +561,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       setIsBlurEnabled(true);
     } catch (err) {
       console.error('Could not start background blur:', err.message);
-      setMediaError('Background blur could not start on this device.');
+      setBlurError(`Background blur couldn't start: ${err.message || 'unknown error'}`);
     } finally {
       setIsBlurLoading(false);
     }
@@ -647,6 +652,7 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     isScreenSharing,
     isBlurEnabled,
     isBlurLoading,
+    blurError,
     // Needs both a capable browser AND an actual camera to blur —
     // initializeMedia falls back to audio-only when the camera is blocked,
     // and a button that silently does nothing is worse than no button.

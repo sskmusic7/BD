@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BodyDouble — Background Blur Test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #0f172a; color: #e2e8f0;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { color: #94a3b8; font-size: 13px; margin-bottom: 16px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #334155; font-size: 14px; }
+  .row:last-child { border-bottom: 0; }
+  .row span:first-child { color: #94a3b8; }
+  .val { font-weight: 600; text-align: right; }
+  .yes { color: #4ade80; } .no { color: #f87171; } .wait { color: #fbbf24; }
+  button { width: 100%; padding: 16px; font-size: 16px; font-weight: 600; border: 0;
+    border-radius: 12px; background: #3b82f6; color: #fff; -webkit-appearance: none; }
+  button:disabled { background: #475569; color: #94a3b8; }
+  video, canvas { width: 100%; border-radius: 10px; background: #000; display: block; }
+  .half { display: flex; gap: 8px; }
+  .half > div { flex: 1; }
+  .label { font-size: 11px; color: #94a3b8; margin: 6px 0 4px; }
+  #verdict { font-size: 14px; line-height: 1.5; }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: 11px; color: #94a3b8;
+    background: #0f172a; padding: 8px; border-radius: 8px; max-height: 180px; overflow: auto; }
+</style>
+</head>
+<body>
+
+<h1>Background blur test</h1>
+<div class="sub">Works out exactly which step fails on this device.</div>
+
+<div class="card">
+  <div class="row"><span>WASM SIMD</span><span class="val" id="simd">—</span></div>
+  <div class="row"><span>canvas.captureStream</span><span class="val" id="capture">—</span></div>
+  <div class="row"><span>Camera</span><span class="val" id="camera">—</span></div>
+  <div class="row"><span>MediaPipe module</span><span class="val" id="module">—</span></div>
+  <div class="row"><span>WASM runtime (~3MB)</span><span class="val" id="wasm">—</span></div>
+  <div class="row"><span>Segmenter (GPU)</span><span class="val" id="gpu">—</span></div>
+  <div class="row"><span>Segmenter (CPU fallback)</span><span class="val" id="cpu">—</span></div>
+  <div class="row"><span>First segmented frame</span><span class="val" id="frame">—</span></div>
+  <div class="row"><span>Output stream frames</span><span class="val" id="output">—</span></div>
+</div>
+
+<button id="btn">Start test</button>
+
+<div class="card">
+  <div class="half">
+    <div><div class="label">Camera</div><video id="src" autoplay muted playsinline></video></div>
+    <div><div class="label">Blurred</div><canvas id="out"></canvas></div>
+  </div>
+</div>
+
+<div class="card"><div id="verdict">Tap <b>Start test</b> and allow the camera.</div></div>
+<div class="card"><div class="label">Details</div><pre id="log"></pre></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const set = (id, text, cls) => { const n = $(id); n.textContent = text; n.className = 'val' + (cls ? ' ' + cls : ''); };
+const log = (msg) => { $('log').textContent += msg + '\n'; };
+
+// Same probe the app uses to decide whether to show the blur button.
+function simdOk() {
+  try {
+    return WebAssembly.validate(new Uint8Array([
+      0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11]));
+  } catch (e) { return false; }
+}
+
+set('simd', simdOk() ? 'Supported' : 'Missing', simdOk() ? 'yes' : 'no');
+const canCapture = !!HTMLCanvasElement.prototype.captureStream;
+set('capture', canCapture ? 'Supported' : 'Missing', canCapture ? 'yes' : 'no');
+
+$('btn').onclick = async () => {
+  $('btn').disabled = true;
+  $('log').textContent = '';
+  $('verdict').textContent = 'Running…';
+
+  let stream, ImageSegmenter, FilesetResolver, fileset, segmenter, usingDelegate = null;
+  const t = (label, started) => log(`${label}: ${Math.round(performance.now() - started)}ms`);
+
+  // 1. Camera
+  try {
+    set('camera', 'Requesting…', 'wait');
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    $('src').srcObject = stream;
+    await $('src').play().catch(() => {});
+    const s = stream.getVideoTracks()[0].getSettings();
+    set('camera', `${s.width}x${s.height}`, 'yes');
+    log(`camera: ${s.width}x${s.height}`);
+  } catch (e) {
+    set('camera', 'Blocked', 'no');
+    $('verdict').innerHTML = '<b class="no">Camera blocked.</b> Allow it and run again.';
+    $('btn').disabled = false; return;
+  }
+
+  // 2. The library itself
+  try {
+    set('module', 'Loading…', 'wait');
+    const started = performance.now();
+    ({ ImageSegmenter, FilesetResolver } = await import('/mediapipe/vision_bundle.mjs'));
+    set('module', 'Loaded', 'yes'); t('module', started);
+  } catch (e) {
+    set('module', 'Failed', 'no'); log('module error: ' + e.message);
+    $('verdict').innerHTML = '<b class="no">Could not load the blur library.</b><br>' + e.message;
+    $('btn').disabled = false; return;
+  }
+
+  // 3. The WASM runtime — the big download, and a likely place to stall on cellular
+  try {
+    set('wasm', 'Downloading…', 'wait');
+    const started = performance.now();
+    fileset = await FilesetResolver.forVisionTasks('/mediapipe/wasm');
+    set('wasm', `${Math.round(performance.now() - started)}ms`, 'yes'); t('wasm', started);
+  } catch (e) {
+    set('wasm', 'Failed', 'no'); log('wasm error: ' + e.message);
+    $('verdict').innerHTML = '<b class="no">The WebAssembly runtime failed to load.</b><br>' + e.message;
+    $('btn').disabled = false; return;
+  }
+
+  // 4. Segmenter — GPU first, then CPU. If GPU is the only thing broken,
+  //    the app can simply fall back instead of doing nothing.
+  const makeSegmenter = async (delegate) => ImageSegmenter.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: '/mediapipe/selfie_segmenter.tflite', delegate },
+    runningMode: 'VIDEO', outputCategoryMask: true, outputConfidenceMasks: false,
+  });
+
+  try {
+    set('gpu', 'Starting…', 'wait');
+    const started = performance.now();
+    segmenter = await makeSegmenter('GPU');
+    usingDelegate = 'GPU';
+    set('gpu', `OK (${Math.round(performance.now() - started)}ms)`, 'yes');
+    set('cpu', 'not needed', '');
+  } catch (e) {
+    set('gpu', 'Failed', 'no'); log('GPU delegate error: ' + e.message);
+    try {
+      set('cpu', 'Starting…', 'wait');
+      const started = performance.now();
+      segmenter = await makeSegmenter('CPU');
+      usingDelegate = 'CPU';
+      set('cpu', `OK (${Math.round(performance.now() - started)}ms)`, 'yes');
+    } catch (e2) {
+      set('cpu', 'Failed', 'no'); log('CPU delegate error: ' + e2.message);
+      $('verdict').innerHTML = '<b class="no">The segmenter would not start at all.</b><br>' + e2.message;
+      $('btn').disabled = false; return;
+    }
+  }
+
+  // 5. Actually segment and composite, exactly as the app does
+  const video = $('src'), canvas = $('out');
+  const w = video.videoWidth || 640, h = video.videoHeight || 480;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const maskIn = document.createElement('canvas');
+  maskIn.width = 256; maskIn.height = Math.round(256 * h / w);
+  const maskCtx = maskIn.getContext('2d', { willReadFrequently: true });
+  const mCanvas = document.createElement('canvas');
+  mCanvas.width = maskIn.width; mCanvas.height = maskIn.height;
+  const mCtx = mCanvas.getContext('2d');
+  const mImage = mCtx.createImageData(mCanvas.width, mCanvas.height);
+
+  let frames = 0, firstFrameMs = null, times = [];
+  const draw = () => {
+    if (!video.videoWidth) { requestAnimationFrame(draw); return; }
+    const started = performance.now();
+    try {
+      maskCtx.drawImage(video, 0, 0, maskIn.width, maskIn.height);
+      const res = segmenter.segmentForVideo(maskIn, performance.now());
+      const mask = res.categoryMask, data = mask.getAsUint8Array();
+      for (let i = 0; i < data.length; i++) mImage.data[i * 4 + 3] = data[i] === 0 ? 0 : 255;
+      mCtx.putImageData(mImage, 0, 0);
+      ctx.save();
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(mCanvas, 0, 0, w, h);
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.filter = 'blur(12px)';
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.restore();
+      mask.close();
+      const took = performance.now() - started;
+      times.push(took);
+      if (firstFrameMs === null) { firstFrameMs = took; set('frame', `${Math.round(took)}ms`, 'yes'); }
+      frames++;
+    } catch (e) {
+      set('frame', 'Failed', 'no'); log('frame error: ' + e.message);
+      $('verdict').innerHTML = '<b class="no">Segmentation ran but the frame failed.</b><br>' + e.message;
+      return;
+    }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+
+  // 6. Does the captured output actually produce frames? This is what gets
+  //    sent to the other person.
+  let outStream = null;
+  try { outStream = canvas.captureStream(30); } catch (e) { log('captureStream error: ' + e.message); }
+
+  setTimeout(() => {
+    const avg = times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0;
+    const fps = frames / 5;
+    set('output', outStream && outStream.getVideoTracks().length
+      ? `${outStream.getVideoTracks()[0].readyState}` : 'none',
+      outStream && outStream.getVideoTracks().length ? 'yes' : 'no');
+    log(`frames in 5s: ${frames} (~${fps.toFixed(1)}fps), avg ${Math.round(avg)}ms/frame, delegate ${usingDelegate}`);
+
+    let v;
+    if (frames === 0) {
+      v = '<b class="no">No frames were produced.</b> Everything loaded but the pipeline never rendered.';
+    } else if (fps < 8) {
+      v = `<b class="wait">Works, but slowly — about ${fps.toFixed(1)} frames per second on ${usingDelegate}.</b>`
+        + ' Blur would run, but it would make the call choppy on this device.';
+    } else {
+      v = `<b class="yes">Works on this device — about ${fps.toFixed(1)}fps on ${usingDelegate}.</b>`
+        + ' If the blurred panel above looks right, blur itself is fine and the problem is in the app.';
+    }
+    $('verdict').innerHTML = v + '<br><br>Look at the two panels: the right one should show you sharp with a blurred background.';
+    $('btn').disabled = false;
+  }, 5000);
+};
+</script>
+</body>
+</html>

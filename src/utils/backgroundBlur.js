@@ -77,12 +77,23 @@ async function getSegmenter() {
         /* webpackIgnore: true */ '/mediapipe/vision_bundle.mjs'
       );
       const fileset = await FilesetResolver.forVisionTasks(WASM_PATH);
-      return ImageSegmenter.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+      const create = (delegate) => ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate },
         runningMode: 'VIDEO',
         outputCategoryMask: true,
         outputConfidenceMasks: false,
       });
+
+      // GPU is much faster, but it's also the part most likely to be
+      // unavailable (older iOS, locked-down WebGL). Falling back to CPU
+      // keeps blur working — slower, which the auto-degrade then handles —
+      // rather than failing outright.
+      try {
+        return await create('GPU');
+      } catch (err) {
+        console.warn('Blur: GPU delegate unavailable, falling back to CPU:', err.message);
+        return create('CPU');
+      }
     })().catch((err) => {
       // Let the next attempt retry rather than caching a failure forever.
       segmenterPromise = null;
