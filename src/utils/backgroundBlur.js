@@ -28,15 +28,33 @@ const QUALITY_STEPS = [
 const SLOW_FRAME_MS = 55;
 const SLOW_FRAMES_BEFORE_DEGRADE = 30;
 
+// Only the SIMD build of the MediaPipe runtime is shipped, so detect SIMD
+// itself rather than guessing from some other modern-browser marker. (This
+// previously keyed off OffscreenCanvas, which the pipeline never uses — it
+// could hide the button on a browser that would have worked perfectly.)
+// Canonical probe: a module whose function returns a v128.
+let simdSupported = null;
+function wasmSimdSupported() {
+  if (simdSupported === null) {
+    try {
+      simdSupported = WebAssembly.validate(new Uint8Array([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123,
+        3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11,
+      ]));
+    } catch (err) {
+      simdSupported = false;
+    }
+  }
+  return simdSupported;
+}
+
 export function blurSupported() {
   return (
     typeof window !== 'undefined' &&
     typeof HTMLCanvasElement !== 'undefined' &&
     !!HTMLCanvasElement.prototype.captureStream &&
     typeof WebAssembly === 'object' &&
-    // Rules out the very old browsers that would need the non-SIMD build,
-    // which isn't shipped.
-    typeof OffscreenCanvas !== 'undefined'
+    wasmSimdSupported()
   );
 }
 
