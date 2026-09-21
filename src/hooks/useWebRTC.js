@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import config from '../config/config';
+import { startBlur, blurSupported } from '../utils/backgroundBlur';
 
 const STUN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -40,6 +41,8 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const [mediaError, setMediaError] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
+  const [isBlurEnabled, setIsBlurEnabled] = useState(false);
+  const [isBlurLoading, setIsBlurLoading] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -47,6 +50,9 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   const localStreamRef = useRef(null);
   const mediaPromiseRef = useRef(null);
   const screenStreamRef = useRef(null);
+  // The running blur pipeline, or null. Holds ONE stable MediaStream for its
+  // lifetime — see the srcObject effect below for why that matters.
+  const blurRef = useRef(null);
   // ICE candidates that arrived before we could apply them. A candidate can
   // only be added once the peer connection exists AND its remote description
   // is set; anything earlier has to wait here or it's lost for good.
@@ -81,7 +87,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
         localStreamRef.current = stream;
         setMediaError(null);
 
-        if (localVideoRef.current) {
+        // Skipped while blur is running: the preview should show the
+        // blurred output, and assigning the raw camera here would fight the
+        // effect below and flip the preview back mid-call.
+        if (localVideoRef.current && !blurRef.current) {
           localVideoRef.current.srcObject = stream;
         }
 
@@ -138,7 +147,22 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     const fresh = await initializeMedia();
     if (!fresh || !peerConnection) return;
 
+    // Blur reads from the camera track, so point it at the new one and keep
+    // sending the blurred output — otherwise coming back from another app
+    // silently un-blurs the call.
+    const freshVideo = fresh.getVideoTracks()[0];
+    if (blurRef.current && freshVideo) {
+      blurRef.current.setSource(freshVideo);
+    }
+
     for (const track of fresh.getTracks()) {
+      if (track.kind === 'video' && blurRef.current) {
+        const videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+        if (videoSender) {
+          await videoSender.replaceTrack(blurRef.current.track).catch(() => {});
+        }
+        continue;
+      }
       const sender = peerConnection.getSenders().find(s => s.track?.kind === track.kind)
         // A sender whose track already ended reports track === null, so also
         // match on the transceiver's configured kind.
@@ -274,7 +298,9 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   // the call and baked into recordings (11 dark frames in a 10s capture).
   useEffect(() => {
     if (!localVideoRef.current) return;
-    const desiredStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
+    const desiredStream = isScreenSharing
+      ? screenStreamRef.current
+      : (blurRef.current?.stream || localStreamRef.current);
     if (desiredStream && localVideoRef.current.srcObject !== desiredStream) {
       localVideoRef.current.srcObject = desiredStream;
     }
@@ -465,6 +491,15 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
+
+        // With blur running, disabling the camera alone isn't enough. The
+        // pipeline draws from its own <video> element, so it would happily
+        // blur black frames and keep transmitting a "live" black picture
+        // instead of muting. Gate the output track and stop the work.
+        if (blurRef.current) {
+          blurRef.current.setPaused(!videoTrack.enabled);
+          blurRef.current.track.enabled = videoTrack.enabled;
+        }
       }
     }
   }, []);
@@ -479,6 +514,54 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     }
   }, []);
 
+  // Blurs the background of the outgoing video, and of the local preview —
+  // which is also what lands in recordings, since the recorder composites
+  // from the <video> elements rather than the streams.
+  const toggleBlur = useCallback(async () => {
+    // Turning it off: send the raw camera again, but leave the segmenter
+    // loaded so toggling back on is instant.
+    if (blurRef.current) {
+      const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+      const videoSender = peerConnectionRef.current?.getSenders().find(s => s.track?.kind === 'video');
+      if (cameraTrack && videoSender && !isScreenSharing) {
+        await videoSender.replaceTrack(cameraTrack).catch(err => console.error('Error restoring camera:', err));
+      }
+      blurRef.current.stop();
+      blurRef.current = null;
+      setIsBlurEnabled(false);
+      return;
+    }
+
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    if (!cameraTrack) {
+      // Audio-only fallback, or the camera is blocked — nothing to blur.
+      return;
+    }
+
+    setIsBlurLoading(true);
+    try {
+      const pipeline = await startBlur(cameraTrack);
+      blurRef.current = pipeline;
+      // Match the current camera state: if video is off, don't start
+      // transmitting a blurred picture.
+      pipeline.setPaused(!cameraTrack.enabled);
+      pipeline.track.enabled = cameraTrack.enabled;
+
+      // While screen sharing, the screen owns the outgoing track; blur still
+      // applies to the preview and takes over again when sharing stops.
+      if (!isScreenSharing) {
+        const videoSender = peerConnectionRef.current?.getSenders().find(s => s.track?.kind === 'video');
+        if (videoSender) await videoSender.replaceTrack(pipeline.track);
+      }
+      setIsBlurEnabled(true);
+    } catch (err) {
+      console.error('Could not start background blur:', err.message);
+      setMediaError('Background blur could not start on this device.');
+    } finally {
+      setIsBlurLoading(false);
+    }
+  }, [isScreenSharing]);
+
   // Swaps the video RTCRtpSender's track back to the camera. Reused both for
   // the button and for the browser's native "Stop sharing" control.
   const stopScreenShare = useCallback(() => {
@@ -487,10 +570,13 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
       screenStreamRef.current = null;
     }
 
-    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+    // Restore whatever the outgoing video SHOULD be — the blurred output if
+    // blur is on, otherwise the raw camera. Hard-coding the camera track
+    // here would silently drop blur the moment someone stopped sharing.
+    const restoreTrack = blurRef.current?.track || localStreamRef.current?.getVideoTracks()[0];
     const videoSender = peerConnectionRef.current?.getSenders().find(s => s.track?.kind === 'video');
-    if (cameraTrack && videoSender) {
-      videoSender.replaceTrack(cameraTrack).catch(err => console.error('Error restoring camera track:', err));
+    if (restoreTrack && videoSender) {
+      videoSender.replaceTrack(restoreTrack).catch(err => console.error('Error restoring camera track:', err));
     }
 
     setIsScreenSharing(false);
@@ -531,6 +617,10 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
   }, [isScreenSharing, stopScreenShare]);
 
   const cleanup = useCallback(() => {
+    if (blurRef.current) {
+      blurRef.current.stop();
+      blurRef.current = null;
+    }
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
@@ -555,9 +645,16 @@ const useWebRTC = (socket, sessionId, isInitiator) => {
     mediaError,
     connectionState,
     isScreenSharing,
+    isBlurEnabled,
+    isBlurLoading,
+    // Needs both a capable browser AND an actual camera to blur —
+    // initializeMedia falls back to audio-only when the camera is blocked,
+    // and a button that silently does nothing is worse than no button.
+    canBlur: blurSupported() && !!localStream?.getVideoTracks().length,
     toggleVideo,
     toggleAudio,
     toggleScreenShare,
+    toggleBlur,
     cleanup
   };
 };

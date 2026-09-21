@@ -1,27 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  MessageCircle, 
-  Clock, 
+import {
+  VideoOff,
+  MicOff,
+  MessageCircle,
+  Clock,
   Target,
   CheckCircle,
-  XCircle,
-  UserPlus,
   Play,
   Pause,
   RotateCcw,
   Maximize2,
   LayoutGrid,
-  ScreenShare,
-  ScreenShareOff,
   Loader2,
-  Circle,
-  Square,
   Download
 } from 'lucide-react';
+import CallControls from './CallControls';
 import useWebRTC from '../hooks/useWebRTC';
 import useCallRecorder, { canRecordCalls } from '../hooks/useCallRecorder';
 import { playMessageSentTone, playMessageReceivedTone } from '../utils/sounds';
@@ -70,9 +63,13 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
     mediaError,
     connectionState,
     isScreenSharing,
+    isBlurEnabled,
+    isBlurLoading,
+    canBlur,
     toggleVideo,
     toggleAudio,
     toggleScreenShare,
+    toggleBlur,
     cleanup
   } = useWebRTC(socket, session.id, user.id < session.partner.id);
   const canScreenShare = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
@@ -545,81 +542,25 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
               </div>
 
               {/* Controls */}
-              <div className="flex justify-center space-x-4 mt-4">
-                <button
-                  onClick={toggleVideo}
-                  className={`p-3 rounded-full transition-colors ${
-                    isVideoEnabled
-                      ? 'bg-green-500 hover:bg-green-600'
-                      : 'bg-red-500 hover:bg-red-600'
-                  }`}
-                  title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
-                >
-                  {isVideoEnabled ?
-                    <Video className="w-5 h-5 text-white" /> :
-                    <VideoOff className="w-5 h-5 text-white" />
-                  }
-                </button>
-                <button
-                  onClick={toggleAudio}
-                  className={`p-3 rounded-full transition-colors ${
-                    isAudioEnabled
-                      ? 'bg-green-500 hover:bg-green-600'
-                      : 'bg-red-500 hover:bg-red-600'
-                  }`}
-                  title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-                >
-                  {isAudioEnabled ?
-                    <Mic className="w-5 h-5 text-white" /> :
-                    <MicOff className="w-5 h-5 text-white" />
-                  }
-                </button>
-                {canScreenShare && (
-                  <button
-                    onClick={toggleScreenShare}
-                    className={`p-3 rounded-full transition-colors ${
-                      isScreenSharing
-                        ? 'bg-blue-500 hover:bg-blue-600'
-                        : 'bg-white/20 hover:bg-white/30'
-                    }`}
-                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
-                  >
-                    {isScreenSharing ?
-                      <ScreenShareOff className="w-5 h-5 text-white" /> :
-                      <ScreenShare className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                )}
-                {canRecordCalls && (
-                  <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`p-3 rounded-full transition-colors ${
-                      isRecording
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-white/20 hover:bg-white/30'
-                    }`}
-                    title={isRecording ? 'Stop recording' : 'Record call'}
-                  >
-                    {isRecording ?
-                      <Square className="w-5 h-5 text-white" /> :
-                      <Circle className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                )}
-                <button
-                  onClick={addFriend}
-                  className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
-                  title="Add as friend"
-                >
-                  <UserPlus className="w-5 h-5 text-white" />
-                </button>
-                <button
-                  onClick={endSession}
-                  className="p-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
-                >
-                  <XCircle className="w-5 h-5 text-white" />
-                </button>
-              </div>
+              <CallControls
+                isVideoEnabled={isVideoEnabled}
+                toggleVideo={toggleVideo}
+                isAudioEnabled={isAudioEnabled}
+                toggleAudio={toggleAudio}
+                canScreenShare={canScreenShare}
+                isScreenSharing={isScreenSharing}
+                toggleScreenShare={toggleScreenShare}
+                canBlur={canBlur}
+                isBlurEnabled={isBlurEnabled}
+                isBlurLoading={isBlurLoading}
+                toggleBlur={toggleBlur}
+                canRecordCalls={canRecordCalls}
+                isRecording={isRecording}
+                startRecording={startRecording}
+                stopRecording={stopRecording}
+                addFriend={addFriend}
+                endSession={endSession}
+              />
             </div>
 
             {/* Goals Section for Stacked Layout */}
@@ -759,82 +700,26 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                   </div>
                 </div>
 
-                {/* Controls */}
-                <div className="flex justify-center space-x-4 mt-4">
-                  <button
-                    onClick={toggleVideo}
-                    className={`p-3 rounded-full transition-colors ${
-                      isVideoEnabled 
-                        ? 'bg-green-500 hover:bg-green-600' 
-                        : 'bg-red-500 hover:bg-red-600'
-                    }`}
-                    title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
-                  >
-                    {isVideoEnabled ? 
-                      <Video className="w-5 h-5 text-white" /> : 
-                      <VideoOff className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                  <button
-                    onClick={toggleAudio}
-                    className={`p-3 rounded-full transition-colors ${
-                      isAudioEnabled 
-                        ? 'bg-green-500 hover:bg-green-600' 
-                        : 'bg-red-500 hover:bg-red-600'
-                    }`}
-                    title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-                  >
-                    {isAudioEnabled ?
-                      <Mic className="w-5 h-5 text-white" /> :
-                      <MicOff className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                  {canScreenShare && (
-                    <button
-                      onClick={toggleScreenShare}
-                      className={`p-3 rounded-full transition-colors ${
-                        isScreenSharing
-                          ? 'bg-blue-500 hover:bg-blue-600'
-                          : 'bg-white/20 hover:bg-white/30'
-                      }`}
-                      title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
-                    >
-                      {isScreenSharing ?
-                        <ScreenShareOff className="w-5 h-5 text-white" /> :
-                        <ScreenShare className="w-5 h-5 text-white" />
-                      }
-                    </button>
-                  )}
-                  {canRecordCalls && (
-                    <button
-                      onClick={isRecording ? stopRecording : startRecording}
-                      className={`p-3 rounded-full transition-colors ${
-                        isRecording
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-white/20 hover:bg-white/30'
-                      }`}
-                      title={isRecording ? 'Stop recording' : 'Record call'}
-                    >
-                      {isRecording ?
-                        <Square className="w-5 h-5 text-white" /> :
-                        <Circle className="w-5 h-5 text-white" />
-                      }
-                    </button>
-                  )}
-                  <button
-                    onClick={addFriend}
-                    className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
-                    title="Add as friend"
-                  >
-                    <UserPlus className="w-5 h-5 text-white" />
-                  </button>
-                  <button
-                    onClick={endSession}
-                    className="p-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
-                  >
-                    <XCircle className="w-5 h-5 text-white" />
-                  </button>
-                </div>
+                  {/* Controls */}
+                  <CallControls
+                    isVideoEnabled={isVideoEnabled}
+                    toggleVideo={toggleVideo}
+                    isAudioEnabled={isAudioEnabled}
+                    toggleAudio={toggleAudio}
+                    canScreenShare={canScreenShare}
+                    isScreenSharing={isScreenSharing}
+                    toggleScreenShare={toggleScreenShare}
+                    canBlur={canBlur}
+                    isBlurEnabled={isBlurEnabled}
+                    isBlurLoading={isBlurLoading}
+                    toggleBlur={toggleBlur}
+                    canRecordCalls={canRecordCalls}
+                    isRecording={isRecording}
+                    startRecording={startRecording}
+                    stopRecording={stopRecording}
+                    addFriend={addFriend}
+                    endSession={endSession}
+                  />
               </div>
 
               {/* Goals Section */}
@@ -1044,88 +929,29 @@ const SessionPage = ({ socket, session, user, onEndSession }) => {
                 </div>
               </div>
 
-              {/* Controls */}
-              <div className="flex justify-center space-x-4 mt-4">
-                <button
-                  onClick={toggleVideo}
-                  className={`p-3 rounded-full transition-colors ${
-                    isVideoEnabled 
-                      ? 'bg-green-500 hover:bg-green-600' 
-                      : 'bg-red-500 hover:bg-red-600'
-                  }`}
-                  title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
-                >
-                  {isVideoEnabled ? 
-                    <Video className="w-5 h-5 text-white" /> : 
-                    <VideoOff className="w-5 h-5 text-white" />
-                  }
-                </button>
-                <button
-                  onClick={toggleAudio}
-                  className={`p-3 rounded-full transition-colors ${
-                    isAudioEnabled 
-                      ? 'bg-green-500 hover:bg-green-600' 
-                      : 'bg-red-500 hover:bg-red-600'
-                  }`}
-                  title={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-                >
-                  {isAudioEnabled ?
-                    <Mic className="w-5 h-5 text-white" /> :
-                    <MicOff className="w-5 h-5 text-white" />
-                  }
-                </button>
-                {canScreenShare && (
-                  <button
-                    onClick={toggleScreenShare}
-                    className={`p-3 rounded-full transition-colors ${
-                      isScreenSharing
-                        ? 'bg-blue-500 hover:bg-blue-600'
-                        : 'bg-white/20 hover:bg-white/30'
-                    }`}
-                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
-                  >
-                    {isScreenSharing ?
-                      <ScreenShareOff className="w-5 h-5 text-white" /> :
-                      <ScreenShare className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                )}
-                {canRecordCalls && (
-                  <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`p-3 rounded-full transition-colors ${
-                      isRecording
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-white/20 hover:bg-white/30'
-                    }`}
-                    title={isRecording ? 'Stop recording' : 'Record call'}
-                  >
-                    {isRecording ?
-                      <Square className="w-5 h-5 text-white" /> :
-                      <Circle className="w-5 h-5 text-white" />
-                    }
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowChat(!showChat)}
-                  className="p-3 rounded-full bg-blue-500 hover:bg-blue-600 transition-colors lg:hidden"
-                >
-                  <MessageCircle className="w-5 h-5 text-white" />
-                </button>
-                <button
-                  onClick={addFriend}
-                  className="p-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
-                  title="Add as friend"
-                >
-                  <UserPlus className="w-5 h-5 text-white" />
-                </button>
-                <button
-                  onClick={endSession}
-                  className="p-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
-                >
-                  <XCircle className="w-5 h-5 text-white" />
-                </button>
-              </div>
+                {/* Controls */}
+                <CallControls
+                  isVideoEnabled={isVideoEnabled}
+                  toggleVideo={toggleVideo}
+                  isAudioEnabled={isAudioEnabled}
+                  toggleAudio={toggleAudio}
+                  canScreenShare={canScreenShare}
+                  isScreenSharing={isScreenSharing}
+                  toggleScreenShare={toggleScreenShare}
+                  canBlur={canBlur}
+                  isBlurEnabled={isBlurEnabled}
+                  isBlurLoading={isBlurLoading}
+                  toggleBlur={toggleBlur}
+                  canRecordCalls={canRecordCalls}
+                  isRecording={isRecording}
+                  startRecording={startRecording}
+                  stopRecording={stopRecording}
+                  addFriend={addFriend}
+                  endSession={endSession}
+                  showChatToggle
+                  showChat={showChat}
+                  onToggleChat={() => setShowChat(!showChat)}
+                />
             </div>
             </div>
 

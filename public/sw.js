@@ -5,10 +5,38 @@
  * than no shell at all.
  */
 
+// The background-blur model and its WebAssembly runtime: ~2.6MB over the
+// wire, fetched only when someone first turns blur on. Cached here so it's
+// a one-time cost per device rather than per visit. Nothing else is cached
+// — a stale app shell would be worse than no shell for a live call client.
+const BLUR_CACHE = 'bodydouble-blur-v1';
+const BLUR_ASSETS = /\/mediapipe\/.*\.(wasm|tflite|js)$/;
+
 self.addEventListener('install', () => {
   // Take over immediately rather than waiting for every tab to close — a
   // half-updated push handler is worse than a brief overlap.
   self.skipWaiting();
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET' || !BLUR_ASSETS.test(new URL(event.request.url).pathname)) {
+    return;
+  }
+  event.respondWith(
+    caches.open(BLUR_CACHE).then((cache) =>
+      cache.match(event.request).then((hit) => {
+        if (hit) return hit;
+        return fetch(event.request).then((response) => {
+          // Only cache a complete, successful response — a partial or failed
+          // fetch cached here would break blur permanently on this device.
+          if (response.ok && response.status === 200) {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        });
+      })
+    )
+  );
 });
 
 self.addEventListener('activate', (event) => {
