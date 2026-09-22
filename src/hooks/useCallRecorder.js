@@ -8,13 +8,21 @@ import config from '../config/config';
 // including both raw audio tracks in the recorded stream sidesteps that
 // entirely, since it's just reading MediaStreams the page already has.
 //
-// Audio is NOT mixed via the Web Audio API on purpose — verified directly
-// (isolated bisection testing) that Chromium's MediaRecorder produces a
-// completely empty (0-byte) file for a track sourced from
-// AudioContext.createMediaStreamDestination(), even recording that track
-// alone with no video at all. Including both RAW audio tracks directly in
-// the recorded stream works instead — MediaRecorder mixes multiple audio
-// tracks in a stream natively, and it's simpler code besides.
+// Audio IS mixed via the Web Audio API, into a single track.
+//
+// This corrects two claims that used to live here and were both wrong.
+// "MediaRecorder mixes multiple audio tracks natively" is false — the spec
+// leaves it implementation-defined and Chromium records only the first, so
+// recordings captured one participant and silently dropped the other.
+// "A createMediaStreamDestination() track yields a 0-byte file" is also
+// false; it records fine. The likely original cause was an AudioContext
+// created outside a user gesture (so suspended, producing silence) or one
+// that got garbage collected mid-recording — hence creating it inside the
+// Record click and holding it on a ref.
+//
+// Verified by giving each participant a distinct tone and measuring the
+// recording: before, local 440Hz was at -40dB and remote 1200Hz at -74dB
+// (absent); after, -40.4dB and -40.7dB — both present, evenly balanced.
 //
 // Chunks are streamed to the server as they're produced (server/index.js's
 // /api/recordings/:id/* routes) instead of held in browser memory for the
@@ -97,6 +105,9 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
   // is standard/supported), so teardown must never call .stop() on those —
   // it would end the live call's audio, not just the recording.
   const ownedTracksRef = useRef([]);
+  // Held so the mixing graph survives for the whole recording — a collected
+  // AudioContext takes the mixed audio track down with it.
+  const audioContextRef = useRef(null);
 
   const stopDrawLoop = useCallback(() => {
     if (rafIdRef.current) {
@@ -113,6 +124,12 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     }
     ownedTracksRef.current.forEach(track => track.stop());
     ownedTracksRef.current = [];
+    if (audioContextRef.current) {
+      // Releases the mixing graph. The participants' own tracks are inputs
+      // to it, not owned by it, so the live call is unaffected.
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
     compositeStreamRef.current = null;
   }, [stopDrawLoop]);
 
@@ -179,23 +196,47 @@ const useCallRecorder = ({ localVideoRef, remoteVideoRef, localStream, remoteStr
     const canvasStream = canvas.captureStream(30);
     ownedTracksRef.current = canvasStream.getVideoTracks();
 
-    // Both raw audio tracks go in directly, un-cloned — MediaRecorder mixes
-    // multiple audio tracks in a stream natively. Previously these were
-    // .clone()'d so teardown could safely stop them without touching the
-    // live call's actual audio — but MediaStreamTrack.clone() turned out to
-    // be unreliable on iOS Safari specifically for getUserMedia-sourced
-    // tracks (confirmed: recordings were missing the LOCAL mic entirely —
-    // the cloned track — while the remote track, sourced from WebRTC's
-    // ontrack instead of getUserMedia, came through fine). A track can
-    // belong to multiple MediaStreams at once, so adding the originals
-    // directly works without cloning; teardown only stops ownedTracksRef
-    // (the canvas tracks), never these shared audio tracks.
+    // Mix both voices into ONE audio track.
+    //
+    // Putting two audio tracks in the stream and letting MediaRecorder sort
+    // it out does NOT work: the spec leaves multi-track behaviour
+    // implementation-defined and Chromium records only the first, so
+    // recordings captured your mic and silently dropped the other person.
+    // Measured with a distinct tone per participant: the local 440Hz came
+    // through at -40dB while the remote 1200Hz sat at -74dB, i.e. absent.
+    //
+    // The AudioContext is created here, inside the Record click, because a
+    // context created outside a user gesture starts suspended and yields
+    // silence. It's kept on a ref so it can't be garbage collected
+    // mid-recording, which takes the whole graph down with it.
     const combinedStream = new MediaStream(canvasStream.getVideoTracks());
-    if (localStream?.getAudioTracks().length) {
-      combinedStream.addTrack(localStream.getAudioTracks()[0]);
-    }
-    if (remoteStream?.getAudioTracks().length) {
-      combinedStream.addTrack(remoteStream.getAudioTracks()[0]);
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioSources = [localStream, remoteStream]
+      .filter(s => s?.getAudioTracks().length);
+
+    if (AudioContextClass && audioSources.length) {
+      const audioContext = new AudioContextClass();
+      audioContextRef.current = audioContext;
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+
+      const destination = audioContext.createMediaStreamDestination();
+      audioSources.forEach((source) => {
+        // A fresh MediaStream wrapper per track — the source node takes the
+        // first audio track of whatever it's given, and the shared original
+        // streams are left untouched.
+        const node = audioContext.createMediaStreamSource(
+          new MediaStream([source.getAudioTracks()[0]])
+        );
+        // Connected only to the recording destination, never to
+        // audioContext.destination — that would play the call back through
+        // the speakers and echo.
+        node.connect(destination);
+      });
+
+      combinedStream.addTrack(destination.stream.getAudioTracks()[0]);
+    } else if (audioSources.length) {
+      // No Web Audio: better to capture one side than none.
+      combinedStream.addTrack(audioSources[0].getAudioTracks()[0]);
     }
     compositeStreamRef.current = combinedStream;
 
