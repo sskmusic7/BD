@@ -265,6 +265,20 @@ app.use('/backgrounds', express.static(BACKGROUNDS_DIR, {
   maxAge: '1d',
 }));
 
+// Aisha's avatar assets (~20MB of GLB rig + Mixamo animation clips) for
+// Talk to Agent. Served from the backend rather than bundled with the
+// client so they cost nothing for anyone who never opens the feature, and
+// so the 20MB doesn't land in the Vercel build.
+//
+// Same-origin rules don't apply here — three.js fetches these with XHR, so
+// they're governed by connect-src, which already allows this backend. No
+// CSP change needed. In server/assets, NOT server/data, because that path
+// is a Docker volume and would shadow anything shipped in the image.
+app.use('/aisha/models', express.static(path.join(__dirname, 'assets', 'aisha', 'models'), {
+  maxAge: '30d',
+  immutable: true,
+}));
+
 app.get('/api/backgrounds', (req, res) => {
   const manifestPath = path.join(BACKGROUNDS_DIR, 'manifest.json');
   fs.readFile(manifestPath, 'utf8', (err, raw) => {
