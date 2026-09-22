@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync, execFile } = require('child_process');
 const { createPush } = require('./push');
+const { createAisha } = require('./aisha');
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -296,6 +297,13 @@ app.get('/api/backgrounds', (req, res) => {
 // function declaration, so it can live further down next to the user state
 // it reads.
 const push = createPush({ dataDir: DATA_DIR, getConnectedUserIds });
+
+// Talk-to-Agent. Her brain runs in a container on this same droplet, so
+// this proxies over loopback and keeps her access code server-side.
+const aisha = createAisha();
+if (!aisha.configured) {
+  console.log('Talk to Agent disabled (no AISHA_ACCESS_CODE configured)');
+}
 if (!push.configured) {
   console.log('Push notifications disabled (no VAPID keys configured)');
 }
@@ -305,6 +313,7 @@ app.use(express.json());
 // Push routes need the JSON body parser, so they go after it. (The
 // before-json rule applies only to the raw-body recording chunk route.)
 push.registerRoutes(app);
+aisha.registerRoutes(app);
 
 // Handle preflight requests
 app.options('*', (req, res) => {
@@ -464,6 +473,7 @@ process.on('SIGINT', () => {
 // Socket connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
+  aisha.attach(socket);
 
   // User joins with profile info
   socket.on('join', (userData) => {
