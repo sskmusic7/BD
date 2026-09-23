@@ -32,6 +32,17 @@ const MAINFRAME_URL = process.env.AISHA_MAINFRAME_URL || 'http://localhost:8787'
 const ACCESS_CODE = process.env.AISHA_ACCESS_CODE || '';
 const IDENTITY_EMAIL = process.env.AISHA_IDENTITY_EMAIL || 'bodydouble@local';
 
+// Her voice. "keke" is the voice her own app uses, so she sounds the same
+// here as she does there.
+const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY || '';
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'TfVjIROhkRShQb9pCFfK';
+// Her own app still asks for eleven_monolingual_v1, which ElevenLabs has
+// DEPRECATED AND REMOVED — it now returns 400 unsupported_model, so her
+// voice is broken on her own site too, not just here. turbo_v2_5 measured
+// ~393ms against ~2957ms for multilingual_v2 on the same sentence, and
+// latency is what matters for back-and-forth conversation.
+const ELEVENLABS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_turbo_v2_5';
+
 const REPLY_TIMEOUT_MS = 45000;
 const RECONNECT_DELAY_MS = 3000;
 
@@ -206,11 +217,56 @@ function createAisha({ log = console } = {}) {
   }
 
   function registerRoutes(app) {
+    // Her voice, proxied so the ElevenLabs key stays on this server.
+    //
+    // Her own web app puts this key in the client bundle (VITE_-prefixed),
+    // which is why it's extractable from her public site. Routing through
+    // here means BodyDouble never ships it. The key itself is the same one
+    // and is already public from that other site — it should be rotated;
+    // doing so only requires changing ELEVENLABS_API_KEY on this droplet.
+    app.post('/api/aisha/speak', async (req, res) => {
+      const { text } = req.body || {};
+      if (!ELEVENLABS_KEY) return res.status(503).json({ error: 'Voice is not configured' });
+      if (!text || typeof text !== 'string') return res.status(400).json({ error: 'text required' });
+
+      try {
+        const upstream = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVENLABS_KEY,
+              'Content-Type': 'application/json',
+              Accept: 'audio/mpeg',
+            },
+            body: JSON.stringify({
+              text: text.slice(0, 1200),
+              model_id: ELEVENLABS_MODEL,
+            }),
+          }
+        );
+
+        if (!upstream.ok) {
+          log.error('ElevenLabs failed:', upstream.status);
+          return res.status(502).json({ error: 'Voice service unavailable' });
+        }
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        // Same text produces the same audio, and she repeats herself
+        // (greetings, prompts) — worth letting the browser cache it.
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(Buffer.from(await upstream.arrayBuffer()));
+      } catch (err) {
+        log.error('Voice proxy error:', err.message);
+        res.status(502).json({ error: 'Voice service unavailable' });
+      }
+    });
+
     app.get('/api/aisha/status', async (req, res) => {
       if (!configured) return res.json({ available: false, reason: 'not-configured' });
       try {
         await connect();
-        res.json({ available: true });
+        res.json({ available: true, voice: !!ELEVENLABS_KEY });
       } catch (err) {
         res.json({ available: false, reason: err.message });
       }
